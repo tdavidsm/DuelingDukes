@@ -1,0 +1,12 @@
+{
+  "name": "dueling-dukes",
+  "version": "1.0.0",
+  "description": "A medieval engine-building strategy game for 2-5 dukes, played in the browser.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node test/sim.mjs 60"
+  },
+  "license": "MIT"
+}
