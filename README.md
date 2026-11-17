@@ -150,6 +150,34 @@ vendor/               three.js and PeerJS (both MIT-licensed), vendored so the g
 test/                 rule checks and bot-against-bot simulations
 ```
 
+## Tools
+
+**Printable card list.** `node tools/card-list.mjs [folder]` writes `card-list.html` and, when
+Playwright is installed, `card-list.pdf` (US Letter, landscape): every card and house with its cost,
+type, tags, requirements, effects, Favor Points and a blank notes column. It reads the game's own card
+data, so rerun it after changing cards.
+
+**Card art.** `tools/art/generate-art.mjs` draws art for all 162 cards and 10 houses in one run with
+Google's Gemini image models ("Nano Banana"). Each prompt is built from the card's name, type, tags,
+rules text and flavor line, plus a shared style in `tools/art/style.txt`.
+
+```bash
+export GEMINI_API_KEY=your-key                       # from https://aistudio.google.com/apikey
+node tools/art/generate-art.mjs --dry-run            # write tools/art/prompts.json to review (free)
+node tools/art/generate-art.mjs --only stone_quarry,tavern,royal_wedding   # try a few
+node tools/art/generate-art.mjs                      # draw everything not yet drawn
+```
+
+- Images go to `art/cards/<card id>.png`. The run is resumable: finished images are skipped, so after a
+  failure or a rate limit, run the same command again. `--redo` redraws.
+- For a consistent look, put one to three images you like (for example your best results from the trial
+  run) in `tools/art/style/`. They are sent with every request as style references.
+- To steer a single card, add its own scene to `tools/art/subjects.json`, e.g.
+  `{ "tithes": "a parish priest counting sacks of grain at a church door" }`, then rerun with
+  `--only tithes --redo`.
+- The script picks the cheapest available image model automatically; `--model` overrides it.
+  `--concurrency` and `--size 2K` are also available.
+
 ## Tests
 
 ```bash

@@ -5,6 +5,9 @@
 import * as D from './data.js';
 
 const R = (res) => `{${res}}`;
+// Unit names as a group ("your Caravans") and as one piece ("a Caravan").
+const UNIT_MANY = { settlers: 'Settlers', soldiers: 'Soldiers', knights: 'Knights', caravan: 'Caravans' };
+const UNIT_ONE = { settlers: 'Settlers', soldiers: 'Soldiers', knights: 'Knights', caravan: 'a Caravan' };
 const signed = (n) => (n > 0 ? '+' + n : '−' + Math.abs(n));
 
 function whatText(what, div) {
@@ -29,7 +32,7 @@ export function fxText(f) {
     case 'track': return `Raise ${D.TRACKS[f[1]].name} ${f[2]} rank${f[2] > 1 ? 's' : ''}`;
     case 'rf': return `+${f[1]} Royal Favor`;
     case 'draw': return `Draw ${f[1]} card${f[1] > 1 ? 's' : ''}`;
-    case 'unit': return `Place free ${D.UNITS[f[1]].name} at one of your settlements`;
+    case 'unit': return `Place ${UNIT_ONE[f[1]].replace(/^a /, 'a free ').replace(/^(?!a )/, 'free ')} at one of your settlements`;
     case 'roads': return `Place ${f[1]} free road${f[1] > 1 ? 's' : ''}`;
     case 'steal': return `Take up to ${f[2]} ${R(f[1])} from a rival`;
     case 'harm': return `A rival loses up to ${f[2]} ${R(f[1])}`;
@@ -79,7 +82,7 @@ export function fxpLines(fxp) {
   }
   if (fxp.tradeDiscount) out.push(`Trading with the capital costs you ${fxp.tradeDiscount} less {rm} or {ore}, or ${3 * fxp.tradeDiscount} less {gold}`);
   const mv = Object.keys(fxp.move || {});
-  if (mv.length) out.push(`Your ${mv.map((u) => D.UNITS[u].name).join(', ').replace(/, ([^,]*)$/, ' and $1')} move ${fxp.move[mv[0]]} further each year`);
+  if (mv.length) out.push(`Your ${mv.map((u) => UNIT_MANY[u]).join(', ').replace(/, ([^,]*)$/, ' and $1')} move ${fxp.move[mv[0]]} further each year`);
   if (fxp.str) out.push(`Your Soldiers and Knights fight at +${fxp.str} strength`);
   if (fxp.def) out.push(`Your units defending your own towns and cities get a further +${fxp.def} strength`);
   if (fxp.loot) out.push(`Your raids carry off ${fxp.loot} more`);
@@ -133,7 +136,7 @@ export function describeCard(card) {
 
 export function describeHouse(house) {
   const lines = [`Start with ${house.gold} {gold}`];
-  for (const f of house.start) lines.push(fxText(f).replace('Place free', 'Start with').replace(' at one of your settlements', ' at your capital'));
+  for (const f of house.start) lines.push(fxText(f).replace(/^Place (a )?free /, (m, a) => 'Start with ' + (a || '')).replace(' at one of your settlements', ' at your capital'));
   return { lines: lines.concat(fxpLines(house.fxp)) };
 }
 
