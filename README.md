@@ -130,7 +130,7 @@ constants in `js/engine/data.js` or `js/engine/cards.js` and easy to change:
 - **Passage** through rival units is a standing permission each duke sets per rival, rather than a
   question asked on every move, so that online play never stalls.
 - **Selling goods** at 1 Gold each is a release valve for late-game surpluses.
-- Map size: 37 hexes for 2–3 dukes, 61 for 4–5; "Lakeland" and "Coastal" layouts.
+- Map size: 61 hexes for 2–3 dukes, 91 for 4–5; "Lakeland" and "Coastal" layouts.
 
 ## Project layout
 

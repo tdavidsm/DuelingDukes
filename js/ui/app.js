@@ -178,7 +178,7 @@ function renderLobby() {
       [['random', 'Surprise me'], ['lake', 'Lakeland: a lake at the heart of the kingdom'], ['coast', 'Coastal: one side of the realm is open sea']].map(([v, t]) =>
         h('option', { value: v, selected: lobby.style === v }, t)));
     box.append(h('label', { class: 'label' }, 'The map'), style,
-      h('p', { class: 'fine' }, '2–3 dukes play on a smaller kingdom, 4–5 on a larger one.'),
+      h('p', { class: 'fine' }, '2–3 dukes play on a kingdom of 61 hexes, 4–5 on one of 91.'),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn primary big', id: 'btn-start', disabled: lobby.seats.length < 2, title: lobby.seats.length < 2 ? 'At least two dukes are needed' : '', onclick: () => s.start() }, 'Begin the game'),
         h('button', { class: 'btn', onclick: () => showHome() }, 'Leave')));

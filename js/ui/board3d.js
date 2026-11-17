@@ -453,9 +453,14 @@ export class Board {
   resetCamera() {
     const R = this.map ? this.map.radius : 3;
     const narrow = this.camera.aspect < 0.9;
-    const d = R * (narrow ? 6.2 : 4.3) + 4;
+    const d = R * (narrow ? 6.6 : 4.5) + 4;
     this.camera.position.set(0, d * 0.95, d * 0.8);
     this.controls.target.set(0, 0, 0);
+    this.controls.maxDistance = d * 1.9;
+    // Keep the whole board clear of the fog, and fade only the table beyond it.
+    const dist = this.camera.position.length();
+    this.scene.fog.near = dist + R * 1.2;
+    this.scene.fog.far = dist + R * 1.2 + 45;
     this.controls.update();
   }
 

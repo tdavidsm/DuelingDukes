@@ -103,7 +103,7 @@ function assignTerrain(grid, rng, style) {
     water.add(centre.id);
     const ring1 = centre.neighbors.slice();
     const start = rng.int(6);
-    const extra = radius >= 4 ? 3 : 2;
+    const extra = radius >= 5 ? 5 : radius >= 4 ? 3 : 2;
     for (let i = 0; i < extra; i++) water.add(ring1[(start + i) % 6]);
   }
   // Scattered ponds and tarns up to the water budget.
@@ -223,5 +223,6 @@ export function genMap(seed, radius, style) {
 }
 
 export function radiusFor(nPlayers) {
-  return nPlayers >= 4 ? 4 : 3;
+  // 61 hexes for 2–3 dukes, 91 for 4–5.
+  return nPlayers >= 4 ? 5 : 4;
 }
