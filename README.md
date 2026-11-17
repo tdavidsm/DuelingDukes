@@ -178,6 +178,15 @@ node tools/art/generate-art.mjs                      # draw everything not yet d
 - The script picks the cheapest available image model automatically; `--model` overrides it.
   `--concurrency` and `--size 2K` are also available.
 
+**Card art from the Gemini app (no API key).** If you make images in the Gemini app with a
+subscription instead of the API, open `tools/art/helper.html` on the published site
+(`…/DuelingDukes/tools/art/helper.html`). It shows one card at a time with a **Copy prompt** button.
+Send the prompt in Gemini, copy the image Gemini makes, and press Ctrl+V on the helper page; the image
+is filed under that card and the next card comes up. **Download all as zip** gives you
+`art/cards/<card id>.png` for every card done. Your progress is kept in that browser, so you can stop
+and carry on another day. The page also has a ready-made instruction for Claude in Chrome to do the
+copying and pasting for you, and can match a batch of downloaded files to cards instead.
+
 ## Tests
 
 ```bash

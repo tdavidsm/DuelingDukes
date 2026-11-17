@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Art Helper</title>
+<style>
+  :root { --ink: #2b1d10; --parch: #f4e9cd; --wood: #21160e; --wood2: #33241a; --wood3: #4a3523; --gold: #dcae4c; --gold2: #f3d68a; --line: #7a5a2c; --good: #6fae73; --bad: #e08a73; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--wood); color: var(--parch); font: 15px/1.4 Georgia, "Palatino Linotype", serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--wood2); flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; color: var(--gold2); letter-spacing: .03em; }
+  .progress { flex: 1; min-width: 160px; }
+  .bar { height: 8px; background: #47362a; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--good); width: 0; }
+  button, .btn { background: linear-gradient(#4f3a27, #3a2a1b); color: var(--parch); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; font: inherit; font-size: 14px; }
+  button:hover:not(:disabled) { border-color: var(--gold); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: linear-gradient(#e6bd5f, #c9982f); color: var(--ink); border-color: #8a6410; font-weight: bold; }
+  button.small { padding: 3px 8px; font-size: 12.5px; }
+  main { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 60px); }
+  aside { border-right: 1px solid var(--wood3); overflow: auto; max-height: calc(100vh - 60px); }
+  .filters { padding: 8px 10px; display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--wood3); position: sticky; top: 0; background: var(--wood); }
+  .filters label { font-size: 13px; display: flex; gap: 4px; align-items: center; }
+  .item { display: flex; align-items: center; gap: 8px; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 14px; }
+  .item:hover { background: rgba(255,255,255,.05); }
+  .item.cur { background: rgba(220,174,76,.18); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #5a4a3a; flex: none; }
+  .item.done .dot { background: var(--good); }
+  .item.sent .dot { background: var(--gold); }
+  .item.skip .dot { background: transparent; border: 1px solid #8a7a6a; }
+  .item .thumb { width: 36px; height: 27px; object-fit: cover; border-radius: 3px; margin-left: auto; }
+  section.work { padding: 16px 20px; overflow: auto; max-height: calc(100vh - 60px); }
+  .card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .card-head h2 { margin: 0; font-size: 24px; color: var(--gold2); }
+  .muted { opacity: .7; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 14px 0; }
+  .step { background: var(--wood2); border: 1px solid var(--wood3); border-radius: 8px; padding: 10px 12px; }
+  .step b.n { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--ink); text-align: center; margin-right: 6px; }
+  .step .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  pre.prompt { white-space: pre-wrap; background: #fbf4df; color: var(--ink); padding: 10px 12px; border-radius: 6px; font: 13.5px/1.45 Georgia, serif; margin: 8px 0 0; max-height: 220px; overflow: auto; }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .drop.over { border-color: var(--gold); background: rgba(220,174,76,.08); }
+  .drop img { max-width: 100%; max-height: 320px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+  .flash { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #1c140d; border: 1px solid var(--gold); padding: 8px 16px; border-radius: 8px; z-index: 9; transition: opacity .4s; }
+  .flash.bad { border-color: var(--bad); color: #ffd2c7; }
+  details { background: var(--wood2); border: 1px solid var(--wood3); border-radius: 8px; padding: 8px 12px; margin-top: 12px; }
+  summary { cursor: pointer; color: var(--gold2); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .grid figure { margin: 0; background: var(--wood2); border-radius: 6px; overflow: hidden; cursor: pointer; }
+  .grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+  .grid figcaption { font-size: 12px; padding: 3px 6px; }
+  .warn { color: var(--bad); }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { max-height: 240px; border-right: 0; border-bottom: 1px solid var(--wood3); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Card Art Helper</h1>
+  <div class="progress"><span id="count">Loading…</span><div class="bar"><i id="bar"></i></div></div>
+  <button id="zip" class="primary" disabled>Download all as zip</button>
+  <button id="review">Review all</button>
+  <button id="import">Import downloads…</button>
+  <input type="file" id="importFiles" accept="image/*" multiple hidden>
+</header>
+<main>
+  <aside>
+    <div class="filters">
+      <label><input type="checkbox" id="onlyMissing" checked> only cards still needing art</label>
+    </div>
+    <div id="list"></div>
+  </aside>
+  <section class="work" id="work"></section>
+</main>
+<script type="module">
+import { CARDS } from '../../js/engine/cards.js';
+import { HOUSES } from '../../js/engine/data.js';
+
+// ------------------------------------------------------------ storage
+const DB_NAME = 'dd-art-helper';
+let db;
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('images');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+const tx = (mode, fn) => new Promise((resolve, reject) => {
+  const t = db.transaction('images', mode);
+  const r = fn(t.objectStore('images'));
+  t.oncomplete = () => resolve(r && r.result);
+  t.onerror = () => reject(t.error);
+});
+const putImage = (id, blob) => tx('readwrite', (s) => s.put(blob, id));
+const delImage = (id) => tx('readwrite', (s) => s.delete(id));
+async function allImages() {
+  const keys = await tx('readonly', (s) => s.getAllKeys());
+  const vals = await tx('readonly', (s) => s.getAll());
+  return new Map(keys.map((k, i) => [k, vals[i]]));
+}
+const meta = (() => {
+  try { return JSON.parse(localStorage.getItem('dd-art-meta') || '{}'); } catch { return {}; }
+})();
+meta.skip = meta.skip || {};
+meta.sent = meta.sent || {}; // id -> time the prompt was copied
+const saveMeta = () => { try { localStorage.setItem('dd-art-meta', JSON.stringify(meta)); } catch { /* storage unavailable */ } };
+
+// ------------------------------------------------------------ data
+const prompts = await fetch('./prompts.json').then((r) => r.json());
+const items = [
+  ...CARDS.map((c) => ({ id: c.id, name: c.name, kind: 'card' })),
+  ...HOUSES.map((h) => ({ id: h.id, name: h.name, kind: 'house' })),
+].filter((x) => prompts[x.id]);
+const STYLE = prompts[items[0].id].split('\n\n')[0];
+const sceneOf = (id) => prompts[id].split('\n\n').slice(1).join('\n\n');
+const OPENER = `${STYLE}\n\nI am going to send you a series of card descriptions for a board game. For each one, reply with a single image in exactly this style and nothing else. Do not put any text in the images.`;
+
+db = await openDb();
+let images = await allImages();
+const urls = new Map();
+const urlOf = (id) => {
+  if (!images.has(id)) return null;
+  if (!urls.has(id)) urls.set(id, URL.createObjectURL(images.get(id)));
+  return urls.get(id);
+};
+let cur = items.find((x) => !images.has(x.id) && !meta.skip[x.id])?.id || items[0].id;
+
+// ------------------------------------------------------------ helpers
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function flash(msg, bad = false) {
+  const el = document.createElement('div');
+  el.className = 'flash' + (bad ? ' bad' : '');
+  el.textContent = msg;
+  document.body.append(el);
+  setTimeout(() => { el.style.opacity = 0; }, 1800);
+  setTimeout(() => el.remove(), 2300);
+}
+async function copy(text, what) {
+  try {
+    await navigator.clipboard.writeText(text);
+    flash(`${what} copied`);
+  } catch {
+    // clipboard API unavailable: fall back to a selection copy
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    flash(`${what} copied`);
+  }
+}
+const extOf = (blob) => ({ 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' }[blob.type] || 'png');
+const nextMissing = (after) => {
+  const start = items.findIndex((x) => x.id === after);
+  for (let k = 1; k <= items.length; k++) {
+    const x = items[(start + k) % items.length];
+    if (!images.has(x.id) && !meta.skip[x.id]) return x.id;
+  }
+  return null;
+};
+
+async function attach(id, blob) {
+  if (!blob || !blob.type.startsWith('image/')) { flash('That was not an image', true); return; }
+  await putImage(id, blob);
+  images.set(id, blob);
+  if (urls.has(id)) { URL.revokeObjectURL(urls.get(id)); urls.delete(id); }
+  delete meta.skip[id];
+  saveMeta();
+  const name = items.find((x) => x.id === id).name;
+  const next = nextMissing(id);
+  flash(`Saved art for ${name}${next ? '' : ' — every card has art!'}`);
+  if (next) cur = next;
+  render();
+}
+
+// ------------------------------------------------------------ render
+function render() {
+  const done = items.filter((x) => images.has(x.id)).length;
+  const skipped = items.filter((x) => meta.skip[x.id] && !images.has(x.id)).length;
+  $('#count').textContent = `${done} of ${items.length} have art${skipped ? ` · ${skipped} skipped` : ''}`;
+  $('#bar').style.width = (100 * done / items.length) + '%';
+  $('#zip').disabled = !done;
+  $('#zip').textContent = `Download all as zip (${done})`;
+
+  const onlyMissing = $('#onlyMissing').checked;
+  $('#list').innerHTML = items
+    .filter((x) => !onlyMissing || !images.has(x.id) || x.id === cur)
+    .map((x) => `<div class="item ${x.id === cur ? 'cur' : ''} ${images.has(x.id) ? 'done' : meta.skip[x.id] ? 'skip' : meta.sent[x.id] ? 'sent' : ''}" data-id="${x.id}">
+      <span class="dot"></span><span>${esc(x.name)}</span>${images.has(x.id) ? `<img class="thumb" src="${urlOf(x.id)}" alt="">` : ''}</div>`).join('');
+  const curEl = $('#list .cur');
+  if (curEl) curEl.scrollIntoView({ block: 'nearest' });
+
+  const item = items.find((x) => x.id === cur);
+  const img = urlOf(cur);
+  $('#work').innerHTML = `
+    <div class="card-head"><h2>${esc(item.name)}</h2><span class="muted">${item.kind} · saved as <code>${cur}.${images.has(cur) ? extOf(images.get(cur)) : 'png'}</code></span></div>
+    <div class="steps">
+      <div class="step"><b class="n">1</b>Copy the prompt and send it in your Gemini chat.
+        <div class="row">
+          <button class="primary" id="copyScene">Copy prompt</button>
+          <button id="copyFull" title="Includes the style text: use this in a chat that was not started with the opener">Copy prompt with style</button>
+        </div>
+        <pre class="prompt">${esc(sceneOf(cur))}</pre>
+      </div>
+      <div class="step"><b class="n">2</b>Copy the image Gemini makes, then come back here and press <b>Ctrl+V</b> (⌘V on a Mac). You can also drop a downloaded file here.
+        <div class="drop" id="drop">
+          ${img ? `<img src="${img}" alt="">` : '<span class="muted">Paste or drop the image here</span>'}
+          <div class="row">
+            <button id="pick">Choose a file…</button>
+            ${img ? '<button id="clear">Remove this image</button>' : ''}
+            <button id="skip">${meta.skip[cur] ? 'Unskip' : 'Skip for now'}</button>
+            <button id="next">Next card →</button>
+          </div>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+      </div>
+    </div>
+    <details>
+      <summary>Starting a Gemini chat (do this every 20 or so cards)</summary>
+      <p>Open a new chat in Gemini, choose the image model, send this opener first, and attach one or two images whose style you like (after your first few cards, use your favorites). Then send the prompts one by one with <b>Copy prompt</b>. Starting a fresh chat now and then keeps Gemini quick and stops it drifting.</p>
+      <button id="copyOpener">Copy the chat opener</button>
+      <pre class="prompt">${esc(OPENER)}</pre>
+    </details>
+    <details>
+      <summary>Letting Claude in Chrome do the clicking</summary>
+      <p>Open this page in one tab and a Gemini chat (started with the opener) in another, then give Claude in Chrome these instructions. Watch the first few rounds; it is quickest to correct it early.</p>
+      <button id="copyAgent">Copy these instructions</button>
+      <pre class="prompt">${esc(AGENT)}</pre>
+    </details>
+    <details>
+      <summary>If you downloaded images instead of pasting them</summary>
+      <p>Use <b>Import downloads…</b> at the top and select all the downloaded images at once. They are matched, oldest first, to the cards whose prompts you copied, in the order you copied them. Check the result with <b>Review all</b>. Pasting is more reliable, because each image goes straight to the card on screen.</p>
+    </details>`;
+
+  $('#copyScene').onclick = () => { meta.sent[cur] = Date.now(); saveMeta(); copy(sceneOf(cur), 'Prompt'); render(); };
+  $('#copyFull').onclick = () => { meta.sent[cur] = Date.now(); saveMeta(); copy(prompts[cur], 'Prompt with style'); render(); };
+  $('#copyOpener').onclick = () => copy(OPENER, 'Chat opener');
+  $('#copyAgent').onclick = () => copy(AGENT, 'Instructions');
+  $('#pick').onclick = () => $('#file').click();
+  $('#file').onchange = (e) => { if (e.target.files[0]) attach(cur, e.target.files[0]); };
+  $('#next').onclick = () => { cur = nextMissing(cur) || cur; render(); };
+  $('#skip').onclick = () => { if (meta.skip[cur]) delete meta.skip[cur]; else { meta.skip[cur] = true; cur = nextMissing(cur) || cur; } saveMeta(); render(); };
+  if ($('#clear')) $('#clear').onclick = async () => { await delImage(cur); images.delete(cur); render(); };
+  const drop = $('#drop');
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = (e) => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    const f = [...e.dataTransfer.files].find((x) => x.type.startsWith('image/'));
+    if (f) attach(cur, f);
+  };
+}
+
+const AGENT = `You are helping me make art for the cards of my board game. Two tabs are open: "Card Art Helper" (this page) and a Gemini chat.
+Repeat these steps for each card:
+1. In the Card Art Helper tab, click "Copy prompt".
+2. Switch to the Gemini tab, click the message box, paste (Ctrl+V or Cmd+V) and send.
+3. Wait until Gemini has finished making the image.
+4. Copy the image: use Gemini's copy button on the image, or right-click the image and choose "Copy image".
+5. Switch back to the Card Art Helper tab and press Ctrl+V (Cmd+V on a Mac). Check that the new picture appears and the page moves on to the next card.
+Rules:
+- If Gemini replies with text instead of an image, ask it once more to "Make the image now, with no text in it." If that fails too, click "Skip for now" in the helper and go on.
+- If Gemini says a daily limit has been reached, stop and tell me how many cards were done.
+- Never click "Remove this image" or "Download all as zip", and never close either tab.
+- After every 20 cards, stop and tell me, so I can check the pictures and start a fresh Gemini chat.`;
+
+// ------------------------------------------------------------ global events
+$('#list').onclick = (e) => { const it = e.target.closest('.item'); if (it) { cur = it.dataset.id; render(); } };
+$('#onlyMissing').onchange = render;
+document.addEventListener('paste', (e) => {
+  const file = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file' && i.type.startsWith('image/'));
+  if (!file) { flash('The clipboard holds no image. Copy the image in Gemini first.', true); return; }
+  e.preventDefault();
+  attach(cur, file.getAsFile());
+});
+
+$('#import').onclick = () => $('#importFiles').click();
+$('#importFiles').onchange = async (e) => {
+  const files = [...e.target.files].filter((f) => f.type.startsWith('image/')).sort((a, b) => a.lastModified - b.lastModified);
+  const waiting = items.filter((x) => meta.sent[x.id] && !images.has(x.id)).sort((a, b) => meta.sent[a.id] - meta.sent[b.id]);
+  if (!files.length) return;
+  if (!waiting.length) { flash('No copied prompts are waiting for an image. Copy prompts first, or paste images one by one.', true); return; }
+  const n = Math.min(files.length, waiting.length);
+  for (let i = 0; i < n; i++) { await putImage(waiting[i].id, files[i]); images.set(waiting[i].id, files[i]); }
+  flash(`Matched ${n} image(s) to cards${files.length !== waiting.length ? ` — ${files.length} file(s) for ${waiting.length} waiting card(s), check with Review all` : ''}`, files.length !== waiting.length);
+  e.target.value = '';
+  render();
+  showReview();
+};
+
+function showReview() {
+  const w = $('#work');
+  const done = items.filter((x) => images.has(x.id));
+  w.innerHTML = `<div class="card-head"><h2>Review</h2><span class="muted">${done.length} images. Click one to replace it.</span>
+    <button class="small" id="back">Back</button></div>
+    <div class="grid">${done.map((x) => `<figure data-id="${x.id}"><img src="${urlOf(x.id)}" alt=""><figcaption>${esc(x.name)}</figcaption></figure>`).join('') || '<p class="muted">No images yet.</p>'}</div>`;
+  $('#back').onclick = render;
+  w.querySelector('.grid').onclick = (e) => { const f = e.target.closest('figure'); if (f) { cur = f.dataset.id; render(); } };
+}
+$('#review').onclick = showReview;
+
+// ------------------------------------------------------------ zip (stored, no compression: images are already compressed)
+const CRC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(bytes) { let c = 0xffffffff; for (let i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+async function makeZip(entries) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const { name, blob } of entries) {
+    const data = new Uint8Array(await blob.arrayBuffer());
+    const nameBytes = enc.encode(name);
+    const crc = crc32(data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(8, 0, true);
+    local.setUint16(10, 0, true); local.setUint16(12, 0x21, true);
+    local.setUint32(14, crc, true); local.setUint32(18, data.length, true); local.setUint32(22, data.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    chunks.push(local, nameBytes, data);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true);
+    cen.setUint16(12, 0, true); cen.setUint16(14, 0x21, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, data.length, true); cen.setUint32(24, data.length, true);
+    cen.setUint16(28, nameBytes.length, true); cen.setUint32(42, offset, true);
+    central.push(cen, nameBytes);
+    offset += 30 + nameBytes.length + data.length;
+  }
+  const cenSize = central.reduce((s, c) => s + (c.byteLength ?? c.length), 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
+  return new Blob([...chunks, ...central, end], { type: 'application/zip' });
+}
+$('#zip').onclick = async () => {
+  const entries = items.filter((x) => images.has(x.id)).map((x) => ({ name: `art/cards/${x.id}.${extOf(images.get(x.id))}`, blob: images.get(x.id) }));
+  const zip = await makeZip(entries);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zip);
+  a.download = 'dueling-dukes-card-art.zip';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+
+render();
+</script>
+</body>
+</html>
