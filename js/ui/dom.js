@@ -8,7 +8,12 @@ export function h(tag, attrs, ...kids) {
     const v = attrs[k];
     if (v === null || v === undefined || v === false) continue;
     if (k === 'class') el.className = v;
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') {
+      for (const prop in v) {
+        if (prop.startsWith('--')) el.style.setProperty(prop, v[prop]);
+        else el.style[prop] = v[prop];
+      }
+    }
     else if (k === 'html') el.innerHTML = v;
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else if (k === 'dataset') Object.assign(el.dataset, v);
@@ -18,6 +23,14 @@ export function h(tag, attrs, ...kids) {
   append(el, kids);
   return el;
 }
+
+// The UI builds its panels with el.append(a, cond ? b : null, [c, d]). The
+// browser's own append() would print "null" and "a,b" for those, so within
+// this app append() skips empty values and flattens lists, as h() does.
+const nativeAppend = Element.prototype.append;
+Element.prototype.append = function appendClean(...kids) {
+  return nativeAppend.apply(this, kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false));
+};
 
 function append(el, kids) {
   for (const kid of kids) {

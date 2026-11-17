@@ -51,7 +51,7 @@ effect or an action usable once a year. <span class="chip red">Events</span> hap
 <h3>Standard improvements</h3>
 <p>If you lack Stone, Ore or Food for an improvement you may pay ${D.SUBSTITUTE_COST}${ic('gold')} for each missing unit (done automatically).</p>
 <table class="rules-table">${std}</table>
-<p>You may also <b>sell cards</b> from your hand for 1${ic('gold')} each.</p>
+<p>You may also <b>sell cards</b> from your hand for 1${ic('gold')} each, or <b>sell goods at market</b>: any amount of one kind (Stone, Ore, Food, Raw Materials or Luxuries) for ${D.SELL_PRICE}${ic('gold')} each.</p>
 
 <h3>Standard actions</h3>
 <ul>

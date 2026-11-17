@@ -21,6 +21,8 @@ export const LUX_PER_WEALTH = 8;
 export const DUKE_TRADE_MAX = 5;
 export const KNIGHT_DONATION_GOLD = 5;
 export const PLUNDER_GOLD = 2;
+export const SELLABLE = ['stone', 'ore', 'food', 'rm', 'lux'];
+export const SELL_PRICE = 1; // Gold per good sold at market: a poor rate, but always open
 
 export const TRACKS = {
   power: {

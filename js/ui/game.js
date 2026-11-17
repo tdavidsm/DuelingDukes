@@ -96,6 +96,8 @@ export class GameScreen {
     this.map = E.mapOf(view);
     this.board.setMap(this.map);
     this.board.sync(view, (pid) => this.colorOf(pid));
+    if (this.lastPhase === 'capitalVote' && view.phase !== 'capitalVote') this.board.resetCamera();
+    this.lastPhase = view.phase;
     if (this.mode && this.mode.type === 'unit' && !E.unitById(view, this.mode.id)) this.mode = null;
     if (this.mode && !this.myTurn()) this.mode = null;
     this.renderHud();
@@ -106,6 +108,7 @@ export class GameScreen {
     this.renderUnitBox();
     this.renderPhaseModal();
     this.renderCurtain();
+    this.board.setInset(this.hudEl.offsetHeight, this.bottomEl.offsetHeight);
     this.board.setHighlights(this.highlights());
     if (view.phase === 'ended' && !this.endShown) { this.endShown = true; this.showScores(); }
   }
@@ -401,6 +404,8 @@ export class GameScreen {
       () => toast('Click one of your units on the map.'), 'Click one of your units on the map to move it, attack with it or raid.'));
     body.append(item('Sell Cards', h('span', { class: 'cost-row' }, '+1', icon('gold'), ' each'), myTurn && this.me.hand.length > 0, myTurn ? 'Your hand is empty' : 'Not your turn',
       () => this.showSell(), 'Discard cards from your hand for 1 Gold each.'));
+    body.append(item('Sell Goods at Market', h('span', { class: 'cost-row' }, `+${D.SELL_PRICE}`, icon('gold'), ' each'), myTurn && D.SELLABLE.some((r) => this.me.res[r] > 0), myTurn ? 'You have no goods to sell' : 'Not your turn',
+      () => this.showMarket(), `Sell any amount of one kind of goods for ${D.SELL_PRICE} Gold each.`));
   }
 
   // --------------------------------------------------------- bottom panel
@@ -511,6 +516,11 @@ export class GameScreen {
     } else {
       box.append(h('div', { class: 'prompt-line' }, `${names(waiting)} is ${v.pending.length ? 'resolving an effect' : 'taking a turn'}…`));
     }
+    // The latest happening, so that rivals' moves can be followed without opening the chronicle.
+    const last = v.log[v.log.length - 1];
+    if (last && last.p && last.p !== me) {
+      box.append(h('div', { class: 'ticker' }, h('span', { class: 'dot', style: { background: this.colorOf(last.p) } }), last.chat ? `${this.nameOf(last.p)}: ${last.t}` : last.t));
+    }
   }
 
   // ------------------------------------------------------------- unit box
@@ -577,6 +587,14 @@ export class GameScreen {
       this.phaseModal = { key, modal: m, body };
     }
     this.phaseModal.modal.wrap.classList.toggle('hidden', this.peek);
+    // Only rebuild when something the dialog shows has changed, so that other
+    // dukes' moves do not reset its scroll position.
+    const sig = [key, this.sel.house, [...this.sel.keep].join(), me.draft.join(), me.res.gold].join('|');
+    if (this.phaseModal.sig === sig) return;
+    this.phaseModal.sig = sig;
+    const scroller = this.phaseModal.modal.el.querySelector('.modal-body');
+    const scrollTop = scroller.scrollTop;
+    requestAnimationFrame(() => { scroller.scrollTop = scrollTop; });
     const body = clear(this.phaseModal.body);
     const title = this.phaseModal.modal.el.querySelector('h2');
     const sel = this.sel;
@@ -774,6 +792,28 @@ export class GameScreen {
     draw();
   }
 
+  showMarket() {
+    const me = this.me;
+    const st = { res: D.SELLABLE.find((r) => me.res[r] > 0), n: 1 };
+    const body = h('div', {});
+    const draw = () => {
+      st.n = Math.max(1, Math.min(st.n, me.res[st.res]));
+      clear(body).append(
+        h('p', {}, rich(`The market always buys, at ${D.SELL_PRICE} {gold} for each good. Selling one kind of goods is one action.`)),
+        h('div', { class: 'btn-row' }, D.SELLABLE.map((r) => h('button', { class: 'btn' + (st.res === r ? ' on' : ''), disabled: me.res[r] < 1, onclick: () => { st.res = r; draw(); } }, icon(r), ` ${D.RES_SHORT[r]} (${me.res[r]})`))),
+        h('div', { class: 'stepper' },
+          h('button', { class: 'btn', disabled: st.n <= 1, onclick: () => { st.n--; draw(); } }, '−'),
+          h('span', {}, amount(st.n, st.res), ' → ', amount(st.n * D.SELL_PRICE, 'gold')),
+          h('button', { class: 'btn', disabled: st.n >= me.res[st.res], onclick: () => { st.n++; draw(); } }, '+'),
+          h('button', { class: 'btn quiet', onclick: () => { st.n = me.res[st.res]; draw(); } }, 'All')),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn primary', onclick: () => { m.close(); this.act({ type: 'sellGoods', res: st.res, n: st.n }); } }, 'Sell'),
+          h('button', { class: 'btn', onclick: () => m.close() }, 'Cancel')));
+    };
+    const m = modal({ title: 'Sell goods at market', body });
+    draw();
+  }
+
   showPlayer(pid) {
     const v = this.view;
     const p = v.players[pid];
@@ -787,7 +827,10 @@ export class GameScreen {
       sc ? h('span', { class: 'stat' }, icon('fp'), h('b', {}, sc.total), ' points now') : null));
     body.append(h('div', { class: 'stat-row' },
       D.TAGS.map((t) => h('span', { class: 'stat' }, icon(t), h('b', {}, E.tagCount(v, pid, t)))),
-      h('span', { class: 'stat' }, `${E.count(v, pid, 'towns')} towns · ${E.count(v, pid, 'cities')} cities · ${E.count(v, pid, 'roads')} roads · ${E.count(v, pid, 'churches')} churches · ${p.stats.trades} trades`)));
+      h('span', { class: 'stat' }, [
+        plural(E.count(v, pid, 'towns'), 'town'), plural(E.count(v, pid, 'cities'), 'city', 'cities'), plural(E.count(v, pid, 'roads'), 'road'),
+        plural(E.count(v, pid, 'churches'), 'church', 'churches'), plural(p.stats.trades, 'trade'), `income ${p.rf + p.prod.gold} Gold a year`,
+      ].join(' · '))));
     const grid = h('div', { class: 'card-grid' });
     if (p.house) grid.append(houseEl(p.house));
     for (const t of p.tableau) {

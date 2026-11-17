@@ -281,6 +281,10 @@ function chooseAction(state, pid) {
     if (e !== null && (a = tryAct(state, pid, { type: 'std', kind: 'road', edge: e }))) return a;
   }
   if (p.res.gold >= (late > 0.6 ? 22 : 30) && (a = tryAct(state, pid, { type: 'std', kind: 'tribute' }))) return a;
+  // Granaries and stockpiles overflowing: take the surplus to market.
+  for (const [r, keep] of [['food', 14], ['stone', 14], ['ore', 12]]) {
+    if (p.res[r] >= keep + 8 && (a = tryAct(state, pid, { type: 'sellGoods', res: r, n: p.res[r] - keep }))) return a;
+  }
   if (p.res.gold >= 45 && state.honors.length < D.HONOR_COSTS.length) {
     for (const h of D.HONORS) {
       const st = E.honorStandings(state, h.id);

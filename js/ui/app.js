@@ -192,7 +192,7 @@ function renderLobby() {
 // ?auto=local&bots=2 starts a game against bots straight away (used by the tests).
 if (params.get('auto') === 'local') {
   const s = new HostSession({ name: params.get('name') || 'Tester', online: false });
-  for (let i = 0; i < (+params.get('bots') || 2); i++) s.addBot();
+  for (let i = 0; i < (params.has('bots') ? +params.get('bots') : 2); i++) s.addBot();
   for (let i = 0; i < (+params.get('locals') || 0); i++) s.addLocal('Local ' + (i + 2));
   if (params.get('style')) s.setStyle(params.get('style'));
   attach(s);

@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node test/sim.mjs 60"
+    "test": "node test/rules.mjs && node test/sim.mjs 60"
   },
   "license": "MIT"
 }

@@ -265,6 +265,8 @@ export class Board {
       this.scene.add(this.groups[name]);
     }
     this.unitMeshes = new Map();
+    this.bountySprites = new Map();
+    this.bountyMap = null;
     this.hlPicks = [];
     this.pulsing = [];
     this.waterTiles = [];
@@ -289,6 +291,7 @@ export class Board {
     el.addEventListener('pointerleave', () => { if (this.onHover) this.onHover(null, 0, 0); });
     el.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    this.inset = { top: 0, bottom: 0 };
     this.resize = this.resize.bind(this);
     this.ro = new ResizeObserver(this.resize);
     this.ro.observe(container);
@@ -316,7 +319,17 @@ export class Board {
     const hh = this.container.clientHeight || 600;
     this.renderer.setSize(w, hh);
     this.camera.aspect = w / hh;
+    // Keep the kingdom centred in the part of the screen the panels leave free.
+    const shift = Math.round(((this.inset.bottom || 0) - (this.inset.top || 0)) / 2);
+    if (shift) this.camera.setViewOffset(w, hh, 0, shift, w, hh);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
+  }
+
+  setInset(top, bottom) {
+    if (this.inset.top === top && this.inset.bottom === bottom) return;
+    this.inset = { top, bottom };
+    this.resize();
   }
 
   frame() {
@@ -440,7 +453,7 @@ export class Board {
   resetCamera() {
     const R = this.map ? this.map.radius : 3;
     const narrow = this.camera.aspect < 0.9;
-    const d = R * (narrow ? 5.2 : 3.2) + 3;
+    const d = R * (narrow ? 6.2 : 4.3) + 4;
     this.camera.position.set(0, d * 0.95, d * 0.8);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
@@ -457,12 +470,27 @@ export class Board {
   sync(view, colorOf) {
     const map = this.map;
     const G = this.groups;
-    G.bounties.clear();
+    // Bounty tokens are kept between updates (each owns a small canvas texture).
+    if (this.bountyMap !== map) {
+      for (const sp of this.bountySprites.values()) { sp.material.map.dispose(); sp.material.dispose(); }
+      this.bountySprites.clear();
+      G.bounties.clear();
+      this.bountyMap = map;
+    }
     for (const hid in view.bounties) {
+      if (this.bountySprites.has(hid)) continue;
       const hx = map.hexes[hid];
       const sp = bountySprite(view.bounties[hid]);
       sp.position.set(hx.x, hx.terrain === 'mountain' ? 1.05 : hx.terrain === 'ore' ? 0.85 : 0.6, hx.y);
       G.bounties.add(sp);
+      this.bountySprites.set(hid, sp);
+    }
+    for (const [hid, sp] of this.bountySprites) {
+      if (view.bounties[hid]) continue;
+      G.bounties.remove(sp);
+      sp.material.map.dispose();
+      sp.material.dispose();
+      this.bountySprites.delete(hid);
     }
     G.roads.clear();
     for (const e in view.roads) {
@@ -611,6 +639,9 @@ export class Board {
     if (!this.map) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+    // Highlights added since the last frame have not had their matrices computed yet.
+    this.scene.updateMatrixWorld();
+    this.camera.updateMatrixWorld();
     this.raycaster.setFromCamera(ndc, this.camera);
     const find = (hits) => {
       for (const hit of hits) {

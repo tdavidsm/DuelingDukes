@@ -906,6 +906,17 @@ const H = {
     return null;
   },
 
+  sellGoods(state, p, a, dry) {
+    if (!D.SELLABLE.includes(a.res)) return 'Choose Stone, Ore, Food, Raw Materials or Luxuries';
+    if (!Number.isInteger(a.n) || a.n < 1) return 'Choose how many to sell';
+    if (p.res[a.res] < a.n) return `You only have ${p.res[a.res]} ${D.RES_NAME[a.res]}`;
+    if (dry) return null;
+    p.res[a.res] -= a.n;
+    p.res.gold += a.n * D.SELL_PRICE;
+    log(state, `${p.name} sells ${a.n} ${D.RES_NAME[a.res]} at market for ${a.n * D.SELL_PRICE} Gold.`, p.id);
+    return null;
+  },
+
   std(state, p, a, dry) {
     const kind = a.kind;
     if (!D.STD[kind]) return 'Unknown improvement';
@@ -1262,7 +1273,7 @@ function nextTurn(state) {
 }
 
 function endYear(state) {
-  fire(state, { when: 'yearEnd' });
+  for (const pid of state.order) fire(state, { when: 'yearEnd', pid });
   for (const pid of state.order) {
     const p = state.players[pid];
     const m = mods(state, pid);
