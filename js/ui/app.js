@@ -5,6 +5,7 @@ import { GameScreen } from './game.js';
 import { h, clear, toast, modal, icon } from './dom.js';
 import { rulesHtml } from './rules.js';
 import { PLAYER_COLORS } from '../engine/data.js';
+import { STATE_VERSION } from '../engine/engine.js';
 
 const root = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -35,7 +36,13 @@ function crest() {
 function showHome(message) {
   teardown();
   screen = 'home';
-  const saved = HostSession.saved();
+  let saved = HostSession.saved();
+  if (saved && saved.state && saved.state.v !== STATE_VERSION) {
+    // The rules or cards have changed since this game was saved.
+    HostSession.clearSaved();
+    saved = null;
+    message = message || 'The game has been updated with new rules and cards, so your saved game could not be kept. Please start a new one.';
+  }
   const name = h('input', { id: 'name', class: 'field', maxlength: 20, placeholder: 'Your name, e.g. Duke Thomas', value: savedName() });
   const code = h('input', { id: 'code', class: 'field code', maxlength: 5, placeholder: 'CODE', value: (params.get('join') || '').toUpperCase() });
   const getName = () => {

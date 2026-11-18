@@ -71,7 +71,7 @@ for (let g = 0; g < games; g++) {
       stats.types[a.type + (a.kind ? ':' + a.kind : '')] = (stats.types[a.type + (a.kind ? ':' + a.kind : '')] || 0) + 1;
       steps++;
       if (steps % 25 === 0) invariants(state, `game ${g} step ${steps}`);
-      if (state.year > 60) { fail(`game ${g}: still running in year ${state.year}`); break; }
+      if (state.year > 60) { fail(`game ${g}: still running in year ${state.year}: tracks ${JSON.stringify(state.tracks)}; ${state.order.map((q) => `${q} gold ${state.players[q].res.gold} lux ${state.players[q].res.lux} ore ${state.players[q].res.ore} units ${state.units.filter((u) => u.owner === q).map((u) => u.type + '@' + u.at + (u.at === state.capital ? '(capital)' : '')).join(',')}`).join(' / ')}`); break; }
     }
     invariants(state, `game ${g} end`);
   } catch (e) {

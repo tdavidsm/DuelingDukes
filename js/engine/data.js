@@ -3,7 +3,7 @@
 // cards.js.
 
 export const RES = ['gold', 'stone', 'ore', 'food', 'rm', 'lux'];
-export const PROD_RES = ['gold', 'stone', 'ore', 'food', 'rm'];
+export const PROD_RES = ['gold', 'stone', 'ore', 'food', 'rm', 'lux']; // Luxuries production comes only from cards
 export const RES_NAME = {
   gold: 'Gold', stone: 'Stone', ore: 'Ore', food: 'Food', rm: 'Raw Materials', lux: 'Luxuries', card: 'Cards',
 };
@@ -37,8 +37,26 @@ export const TRACKS = {
     name: 'Wealth', max: 20, blurb: 'The kingdom’s prosperity',
     bonus: { 5: [['prod', 'gold', 1]], 10: [['gain', 'lux', 3]], 15: [['prod', 'gold', 1]] },
   },
+  culture: {
+    name: 'Culture', max: 15, blurb: 'The kingdom’s arts and learning (not needed to end the game)', optional: true,
+    bonus: { 4: [['draw', 1]], 8: [['prod', 'lux', 1]], 12: [['draw', 2]] },
+  },
 };
-export const TRACK_IDS = ['power', 'faith', 'wealth'];
+export const TRACK_IDS = ['power', 'faith', 'wealth', 'culture'];
+// The game ends after the year in which these are all full. Culture is optional.
+export const END_TRACKS = ['power', 'faith', 'wealth'];
+export const PATRONAGE_COST = { gold: 12, lux: 3 };
+
+// Counters that collect on cards, either for Favor Points or to trade for other benefits.
+export const TOKENS = {
+  noble: { one: 'Noble', many: 'Nobles', theme: 'court and politics' },
+  acolyte: { one: 'Acolyte', many: 'Acolytes', theme: 'faith' },
+  scholar: { one: 'Scholar', many: 'Scholars', theme: 'learning' },
+  worker: { one: 'Worker', many: 'Workers', theme: 'trade and industry' },
+  artisan: { one: 'Artisan', many: 'Artisans', theme: 'the arts' },
+};
+export const TOKEN_IDS = Object.keys(TOKENS);
+export const tokenWord = (type, n) => (n === 1 ? TOKENS[type].one : TOKENS[type].many);
 
 export const UNITS = {
   settlers: { name: 'Settlers', move: 2, str: 0 },
@@ -82,9 +100,9 @@ export const TRADE_START = 1;
 export const TRADE_COST = { rm: 3, ore: 3, gold: 9 };
 export const MAX_POSTS = 3;
 
-export const TAGS = ['building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court'];
+export const TAGS = ['building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court', 'culture'];
 export const TAG_NAME = {
-  building: 'Building', military: 'Military', trade: 'Trade', farming: 'Farming', faith: 'Faith', scholar: 'Scholar', court: 'Court',
+  building: 'Building', military: 'Military', trade: 'Trade', farming: 'Farming', faith: 'Faith', scholar: 'Scholar', court: 'Court', culture: 'Culture',
 };
 // Which stockpiled resource may be spent on cards with a tag, and what one unit is worth in Gold.
 export const TAG_PAY = {
@@ -93,6 +111,7 @@ export const TAG_PAY = {
   trade: { res: 'rm', value: 3 },
   farming: { res: 'food', value: 2 },
   court: { res: 'lux', value: 2 },
+  culture: { res: 'lux', value: 2 },
 };
 
 export const HOUSES = [
@@ -138,6 +157,7 @@ export const HONORS = [
   { id: 'merchant', name: 'Merchant Prince', text: 'Most trades made (with the capital or with dukes).', what: 'trades' },
   { id: 'warlord', name: 'Warlord', text: 'Most Power ranks raised.', what: 'raised:power' },
   { id: 'devout', name: 'Most Devout', text: 'Most Faith ranks raised.', what: 'raised:faith' },
+  { id: 'muses', name: 'Patron of the Muses', text: 'Most Culture ranks raised.', what: 'raised:culture' },
 ];
 
 export const FP_TOWN = 1;

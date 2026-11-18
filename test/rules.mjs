@@ -55,7 +55,7 @@ function openGround(s, avoid = []) {
   const me = turn(s);
   const p = s.players[me];
   p.res = { gold: 10, stone: 0, ore: 0, food: 0, rm: 5, lux: 0 };
-  p.prod = { gold: 3, stone: 1, ore: 0, food: 2, rm: 1 };
+  p.prod = { gold: 3, stone: 1, ore: 0, food: 2, rm: 1, lux: 0 };
   const year = s.year;
   for (let i = 0; i < s.order.length; i++) eq(E.apply(s, turn(s), { type: 'pass' }), null, 'pass');
   eq(s.phase, 'research', 'everyone passing ends the year');

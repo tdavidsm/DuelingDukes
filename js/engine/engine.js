@@ -7,6 +7,9 @@ import { genMap, radiusFor } from './map.js';
 import * as D from './data.js';
 import { CARDS, CARD_BY_ID } from './cards.js';
 
+// Saved games from an older set of rules or cards cannot be resumed.
+export const STATE_VERSION = 2;
+
 export function mapOf(state) {
   return genMap(state.seed, state.opts.radius, state.opts.style);
 }
@@ -15,7 +18,7 @@ export function mapOf(state) {
 
 export function createGame({ players, seed, style = 'random' }) {
   const state = {
-    v: 1,
+    v: STATE_VERSION,
     seed: seed | 0,
     rng: (seed ^ 0x5bd1e995) | 0,
     opts: { radius: radiusFor(players.length), style },
@@ -27,7 +30,7 @@ export function createGame({ players, seed, style = 'random' }) {
     players: {},
     deck: [],
     discard: [],
-    tracks: { power: 0, faith: 0, wealth: 0 },
+    tracks: Object.fromEntries(D.TRACK_IDS.map((t) => [t, 0])),
     capital: null,
     candIdx: 0,
     votes: {},
@@ -59,7 +62,7 @@ export function createGame({ players, seed, style = 'random' }) {
       bot: !!pl.bot,
       rf: D.START_RF,
       res: { gold: 0, stone: 0, ore: 0, food: 0, rm: 0, lux: 0 },
-      prod: { gold: 0, stone: 0, ore: 0, food: 0, rm: 0 },
+      prod: { gold: 0, stone: 0, ore: 0, food: 0, rm: 0, lux: 0 },
       hand: [],
       tableau: [],
       events: [],
@@ -73,7 +76,7 @@ export function createGame({ players, seed, style = 'random' }) {
       passage: {},
       peaceUntil: 0,
       connections: 0,
-      stats: { trades: 0, donated: 0, raids: 0, raised: { power: 0, faith: 0, wealth: 0 } },
+      stats: { trades: 0, donated: 0, raids: 0, raised: Object.fromEntries(D.TRACK_IDS.map((t) => [t, 0])) },
     };
   }
   for (const pid of state.order) state.players[pid].draft = drawFromDeck(state, D.START_HAND);
@@ -179,6 +182,104 @@ export function isProtected(state, pid) {
   return state.players[pid].peaceUntil >= state.year || mods(state, pid).peace;
 }
 
+// ------------------------------------------------------------ counters on cards
+
+// Every card exists once, so a card id names one card in play and its owner.
+export function findCard(state, cardId) {
+  for (const pid of state.order) {
+    const t = state.players[pid].tableau.find((x) => x.id === cardId);
+    if (t) return { pid, t, card: CARD_BY_ID[cardId] };
+  }
+  return null;
+}
+
+export function tokenRoom(card, t) {
+  return card.tokenMax ? Math.max(0, card.tokenMax - (t.counters || 0)) : Infinity;
+}
+
+export function cardActs(card) {
+  if (!card || !card.act) return [];
+  return Array.isArray(card.act) ? card.act : [card.act];
+}
+
+// Which cards a counter-moving action could take from and give to.
+export function tokenTargets(state, pid, spec) {
+  const from = [];
+  const to = [];
+  const types = spec.from || [spec.type];
+  for (const owner of state.order) {
+    for (const t of state.players[owner].tableau) {
+      const card = CARD_BY_ID[t.id];
+      if (!card.token) continue;
+      const n = t.counters || 0;
+      if (spec.op === 'move' && types.includes(card.token) && n > 0 && (owner === pid || !isProtected(state, owner))) from.push({ card: t.id, pid: owner, n });
+      if (card.token === spec.type && tokenRoom(card, t) > 0 && (!spec.intoOccupied || n > 0)) to.push({ card: t.id, pid: owner, n });
+    }
+  }
+  return { from, to };
+}
+
+function tokenMoveCheck(state, pid, spec, a) {
+  const many = D.TOKENS[spec.type].many;
+  const to = findCard(state, a.to);
+  if (!to || to.card.token !== spec.type) return `Choose a card that collects ${many}`;
+  if (tokenRoom(to.card, to.t) < 1) return `${to.card.name} cannot hold any more ${many}`;
+  if (spec.intoOccupied && !(to.t.counters > 0)) return `Choose a card that already has ${many} on it`;
+  if (spec.op !== 'move') return { to };
+  const from = findCard(state, a.from);
+  const types = spec.from || [spec.type];
+  if (!from || !types.includes(from.card.token) || !(from.t.counters > 0)) return 'Choose a card to take a counter from';
+  if (a.from === a.to) return 'Choose two different cards';
+  if (from.pid !== pid && isProtected(state, from.pid)) return `${state.players[from.pid].name} is under the King’s protection`;
+  return { from, to };
+}
+
+// Places a card can put a church, a cathedral or a new city.
+export function placeTargets(state, pid, what) {
+  if (what === 'church') return settlementsOf(state, pid).filter((j) => !state.settlements[j].church);
+  if (what === 'cathedral') return settlementsOf(state, pid).filter((j) => state.settlements[j].type !== 'town' && state.settlements[j].church < 2);
+  const map = mapOf(state);
+  return map.junctions.filter((J) => !townSiteError(state, J.id) && J.hexes.some((h) => map.hexes[h].terrain === 'water')).map((J) => J.id);
+}
+
+const PLACE_LABEL = {
+  church: 'Choose one of your towns or cities for the church',
+  cathedral: 'Choose one of your cities for the cathedral',
+  city: 'Choose a site beside water for the new city',
+};
+
+function scaleFx(fx, n) {
+  return (fx || []).map((f) => {
+    const g = [...f];
+    if (f[0] === 'gain') g[2] *= n;
+    else if (f[0] === 'counter' || f[0] === 'chosen') g[1] *= n;
+    return g;
+  });
+}
+
+function mergePay(...pays) {
+  const out = {};
+  for (const pay of pays) for (const r in pay || {}) out[r] = (out[r] || 0) + pay[r];
+  return out;
+}
+
+// The largest "how many" an action option allows right now.
+export function eachMax(state, pid, cardId, o) {
+  const p = state.players[pid];
+  const t = p.tableau.find((x) => x.id === cardId);
+  const card = CARD_BY_ID[cardId];
+  if (!o.each || !t) return 0;
+  let max = o.each.max === 'tokens' ? (t.counters || 0) : o.each.max;
+  for (const r in o.each.pay || {}) {
+    const have = r === 'tokens' ? (t.counters || 0) - ((o.pay && o.pay.tokens) || 0) : p.res[r] - ((o.pay && o.pay[r]) || 0);
+    max = Math.min(max, Math.floor(have / o.each.pay[r]));
+  }
+  for (const f of o.each.fx || []) {
+    if (f[0] === 'counter' && f[1] > 0) max = Math.min(max, Math.floor(tokenRoom(card, t) / f[1]));
+  }
+  return Math.max(0, max);
+}
+
 export function cardBuyCost(state, pid) {
   return Math.max(0, D.CARD_BUY_COST + mods(state, pid).cardBuy);
 }
@@ -255,6 +356,9 @@ function fxError(state, pid, fx) {
   const spend = {};
   for (const f of fx || []) {
     if (f[0] === 'gain' && f[2] < 0) spend[f[1]] = (spend[f[1]] || 0) - f[2];
+    if (f[0] === 'place' && !placeTargets(state, pid, f[1]).length) {
+      return { church: 'Needs one of your towns or cities without a church', cathedral: 'Needs one of your cities without a cathedral', city: 'There is no free site beside water for a city' }[f[1]];
+    }
     if (f[0] === 'prod' && f[2] < 0) {
       const floor = f[1] === 'gold' ? D.MIN_GOLD_PROD : 0;
       if (p.prod[f[1]] + f[2] < floor) return `Not enough ${D.RES_NAME[f[1]]} production`;
@@ -537,6 +641,7 @@ export function pendingChoices(state) {
   if (pd.kind === 'road') return { edges: roadSpots(state, pd.pid) };
   if (pd.kind === 'unit') return { junctions: recruitSpots(state, pd.pid) };
   if (pd.kind === 'choose') return { res: pd.options };
+  if (pd.kind === 'place') return { junctions: placeTargets(state, pd.pid, pd.what) };
   if (pd.kind === 'target') {
     const players = state.order.filter((o) => {
       if (o === pd.pid || isProtected(state, o)) return false;
@@ -630,9 +735,19 @@ function runFx(state, pid, fx, ctx) {
       case 'choose': state.pending.push({ pid, kind: 'choose', n: f[1], options: f[2], label: `Choose a resource to gain ${f[1]} of` }); break;
       case 'counter': {
         const t = p.tableau.find((x) => x.id === ctx.cardId);
-        if (t) t.counters = (t.counters || 0) + f[1];
+        if (t) {
+          const card = CARD_BY_ID[t.id];
+          t.counters = Math.max(0, Math.min(card.tokenMax || Infinity, (t.counters || 0) + f[1]));
+        }
         break;
       }
+      case 'gainPerToken': {
+        const t = p.tableau.find((x) => x.id === ctx.cardId);
+        if (t) p.res[f[1]] += f[2] * (t.counters || 0);
+        break;
+      }
+      case 'chosen': p.res[ctx.res] += f[1]; break;
+      case 'place': state.pending.push({ pid, kind: 'place', what: f[1], label: PLACE_LABEL[f[1]] }); break;
       case 'protect': p.peaceUntil = state.year + 1; break;
       case 'advanceTrade':
         for (const m of D.TRADE_MARKERS) state.trade[m].pos = Math.min(D.TRADE_STEPS - 1, state.trade[m].pos + f[1]);
@@ -818,6 +933,28 @@ const H = {
       if (dry) return null;
       state.pending.shift();
       spawnUnit(state, p.id, pd.unit, a.junction);
+    } else if (pd.kind === 'place') {
+      if (!ch.junctions.includes(a.junction)) return 'Choose one of the glowing sites';
+      let bonus = null;
+      if (pd.what === 'city') {
+        const opts = bonusOptions(state, a.junction);
+        bonus = a.bonus || opts[0];
+        if (!opts.includes(bonus)) return 'Choose a production this site already has';
+      }
+      if (dry) return null;
+      state.pending.shift();
+      if (pd.what === 'city') {
+        placeSettlement(state, p.id, a.junction, 'city');
+        state.settlements[a.junction].bonus = bonus;
+        p.prod[bonus] += 2;
+        log(state, `${p.name} founds a new city beside the water (+2 ${D.RES_NAME[bonus]} production).`, p.id);
+        updateConnections(state);
+        fire(state, { when: 'city', pid: p.id });
+      } else {
+        state.settlements[a.junction].church = pd.what === 'church' ? 1 : 2;
+        log(state, `${p.name} consecrates a ${pd.what}.`, p.id);
+        raise(state, p.id, 'faith', 1);
+      }
     } else if (pd.kind === 'choose') {
       if (!pd.options.includes(a.res)) return 'Choose one of the offered resources';
       if (dry) return null;
@@ -883,14 +1020,67 @@ const H = {
   cardAction(state, p, a, dry) {
     const t = p.tableau.find((x) => x.id === a.card);
     const card = CARD_BY_ID[a.card];
-    if (!t || !card.act) return 'No such action';
+    const acts = cardActs(card);
+    if (!t || !acts.length) return 'No such action';
     if (t.used) return 'Already used this year';
-    for (const r in card.act.pay || {}) if (p.res[r] < card.act.pay[r]) return `Needs ${card.act.pay[r]} ${D.RES_NAME[r]}`;
+    const o = acts[a.opt || 0];
+    if (!o) return 'No such action';
+    let n = 1;
+    if (o.each) {
+      n = a.n;
+      if (!Number.isInteger(n) || n < 1) return 'Choose how many';
+      const max = eachMax(state, p.id, card.id, o);
+      if (max < 1) return 'You cannot do that right now';
+      if (n > max) return `At most ${max}`;
+      if (o.each.choose && !o.each.choose.includes(a.res)) return 'Choose a resource';
+    }
+    const pay = mergePay(o.pay, o.each ? Object.fromEntries(Object.entries(o.each.pay || {}).map(([r, k]) => [r, k * n])) : null);
+    for (const r in pay) {
+      if (r === 'tokens') {
+        if ((t.counters || 0) < pay.tokens) return `Needs ${pay.tokens} ${D.tokenWord(card.token, pay.tokens)} on this card`;
+      } else if (p.res[r] < pay[r]) return `Needs ${pay[r]} ${D.RES_NAME[r]}`;
+    }
+    if (o.minTokens && (t.counters || 0) < o.minTokens) return `Needs ${o.minTokens} ${D.tokenWord(card.token, o.minTokens)} on this card`;
+    for (const f of o.fx || []) {
+      if (f[0] === 'counter' && f[1] > 0 && tokenRoom(card, t) < f[1]) return `${card.name} cannot hold any more ${D.TOKENS[card.token].many}`;
+    }
+    let mv = null;
+    if (o.token) {
+      mv = tokenMoveCheck(state, p.id, o.token, a);
+      if (typeof mv === 'string') return mv;
+    }
     if (dry) return null;
-    payRes(p, card.act.pay || {});
+    for (const r in pay) {
+      if (r === 'tokens') t.counters -= pay.tokens;
+      else p.res[r] -= pay[r];
+    }
     t.used = true;
-    log(state, `${p.name} uses ${card.name}.`, p.id);
-    runFx(state, p.id, card.act.fx, { cardId: card.id });
+    runFx(state, p.id, o.fx, { cardId: card.id });
+    if (o.each) runFx(state, p.id, scaleFx(o.each.fx, n), { cardId: card.id, res: a.res });
+    let note = '';
+    if (mv) {
+      const type = mv.to.card.token;
+      if (mv.from) {
+        const fromType = mv.from.card.token;
+        mv.from.t.counters--;
+        note = ` and moves ${fromType === type ? 'a' : 'a converted'} ${D.TOKENS[fromType].one} from ${state.players[mv.from.pid].name}’s ${mv.from.card.name} to ${state.players[mv.to.pid].name}’s ${mv.to.card.name}`
+          + (fromType === type ? '' : ` as ${/^[aeiou]/i.test(D.TOKENS[type].one) ? 'an' : 'a'} ${D.TOKENS[type].one}`);
+      } else {
+        note = ` and adds ${/^[aeiou]/i.test(D.TOKENS[type].one) ? 'an' : 'a'} ${D.TOKENS[type].one} to ${state.players[mv.to.pid].name}’s ${mv.to.card.name}`;
+      }
+      mv.to.t.counters = (mv.to.t.counters || 0) + 1;
+    }
+    log(state, `${p.name} uses ${card.name}${note}.`, p.id);
+    return null;
+  },
+
+  patronage(state, p, a, dry) {
+    if (state.tracks.culture >= D.TRACKS.culture.max) return 'Culture is already at its height';
+    for (const r in D.PATRONAGE_COST) if (p.res[r] < D.PATRONAGE_COST[r]) return `Needs ${D.PATRONAGE_COST[r]} ${D.RES_NAME[r]}`;
+    if (dry) return null;
+    for (const r in D.PATRONAGE_COST) p.res[r] -= D.PATRONAGE_COST[r];
+    log(state, `${p.name} becomes a patron of the arts (${costText(D.PATRONAGE_COST)}).`, p.id);
+    raise(state, p.id, 'culture', 1);
     return null;
   },
 
@@ -994,6 +1184,7 @@ const H = {
         s.bonus = a.bonus;
         p.prod[a.bonus] += 2;
         log(state, `${p.name} raises a town into a city (+2 ${D.RES_NAME[a.bonus]} production).`, p.id);
+        fire(state, { when: 'city', pid: p.id });
         break;
       case 'church':
         s.church = 1;
@@ -1163,6 +1354,7 @@ const H = {
     unit.acted = true;
     unit.done = true;
     p.stats.raids++;
+    unit.raids = (unit.raids || 0) + 1;
     log(state, `${p.name}'s ${D.UNITS[unit.type].name} raid ${t.name}'s ${state.settlements[unit.at].type}, carrying off ${costText(got)}.`, p.id);
     return null;
   },
@@ -1273,7 +1465,6 @@ function nextTurn(state) {
 }
 
 function endYear(state) {
-  for (const pid of state.order) fire(state, { when: 'yearEnd', pid });
   for (const pid of state.order) {
     const p = state.players[pid];
     const m = mods(state, pid);
@@ -1284,8 +1475,10 @@ function endYear(state) {
       p.res.rm -= n;
       p.res.lux += n + m.convert.bonus;
     }
+    // Year-end card effects pay out like production: after the conversion.
+    fire(state, { when: 'yearEnd', pid });
     p.res.gold = Math.max(0, p.res.gold + p.rf + p.prod.gold);
-    for (const r of ['stone', 'ore', 'food', 'rm']) p.res[r] += p.prod[r];
+    for (const r of ['stone', 'ore', 'food', 'rm', 'lux']) p.res[r] += p.prod[r];
     p.passed = false;
     p.draftDone = false;
     for (const t of p.tableau) t.used = false;
@@ -1297,7 +1490,7 @@ function endYear(state) {
   }
   for (const u of state.units) { u.moved = 0; u.acted = false; u.done = false; }
   log(state, `Year ${state.year} ends. Workshops turn Raw Materials into Luxuries and the harvest comes in.`);
-  if (D.TRACK_IDS.every((t) => state.tracks[t] >= D.TRACKS[t].max)) {
+  if (D.END_TRACKS.every((t) => state.tracks[t] >= D.TRACKS[t].max)) {
     finish(state);
     return;
   }

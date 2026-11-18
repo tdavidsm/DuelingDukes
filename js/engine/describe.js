@@ -25,7 +25,16 @@ function whatText(what, div) {
   return many ? `${div} ${noun}` : noun;
 }
 
-export function fxText(f) {
+const an = (word) => (/^[aeiou]/i.test(word) ? 'an ' : 'a ') + word;
+const tok = (card, n) => D.tokenWord(card && card.token ? card.token : 'noble', n);
+
+const PLACE_TEXT = {
+  church: 'Place a church in one of your towns or cities that has none (Faith rises 1 rank)',
+  cathedral: 'Place a cathedral in one of your cities that has none, even one without a church (Faith rises 1 rank)',
+  city: 'Found a city on any free site beside a water hex, and raise one of its productions by +2',
+};
+
+export function fxText(f, card) {
   switch (f[0]) {
     case 'prod': return `${signed(f[2])} ${R(f[1])} production`;
     case 'gain': return f[2] >= 0 ? `Gain ${f[2]} ${R(f[1])}` : `Spend ${-f[2]} ${R(f[1])}`;
@@ -41,7 +50,9 @@ export function fxText(f) {
     case 'gainPer': return `Gain ${f[2]} ${R(f[1])} per ${whatText(f[3], f[4])}`;
     case 'prodPer': return `+${f[2]} ${R(f[1])} production per ${whatText(f[3], f[4])}`;
     case 'choose': return `Gain ${f[1]} of one kind: ${f[2].map(R).join(' / ')}`;
-    case 'counter': return `Add ${f[1]} token${f[1] > 1 ? 's' : ''} to this card`;
+    case 'counter': return f[1] >= 0 ? `Add ${f[1]} ${tok(card, f[1])} here` : `remove ${-f[1]} ${tok(card, -f[1])} here`;
+    case 'gainPerToken': return `Gain ${f[2]} ${R(f[1])} per ${tok(card, 1)} here`;
+    case 'place': return PLACE_TEXT[f[1]];
     case 'protect': return 'King’s Peace: until the end of next year, rivals cannot raid you or target you with cards';
     case 'advanceTrade': return `Every Trade Track marker climbs ${f[1]} step${f[1] > 1 ? 's' : ''}`;
     case 'resetMove': return 'All your units regain their movement for this year';
@@ -49,12 +60,54 @@ export function fxText(f) {
   }
 }
 
-function costPhrase(pay) {
-  const parts = Object.keys(pay || {}).map((r) => `${pay[r]} ${R(r)}`);
-  return parts.length ? `Spend ${parts.join(' and ')}` : 'Free';
+function costPhrase(pay, card) {
+  const parts = [];
+  const spend = Object.keys(pay || {}).filter((r) => r !== 'tokens').map((r) => `${pay[r]} ${R(r)}`);
+  if (spend.length) parts.push(`Spend ${spend.join(' and ')}`);
+  if (pay && pay.tokens) parts.push(`${spend.length ? 'remove' : 'Remove'} ${pay.tokens} ${tok(card, pay.tokens)} here`);
+  return parts.join(' and ');
 }
 
-function triggerText(o) {
+const lower = (t) => t.replace(/^(Gain|Add|Draw|All|Place|Raise|Spend|Remove)/, (m) => m.toLowerCase());
+
+function eachText(e, card) {
+  const many = tok(card, 2);
+  const payRes = Object.keys(e.pay || {});
+  let head;
+  if (e.max === 'tokens') head = `Remove any number of ${many} here`;
+  else if (payRes.length === 1 && payRes[0] !== 'tokens') head = `Spend up to ${e.max * e.pay[payRes[0]]} ${R(payRes[0])}`;
+  else head = `Up to ${e.max} times, ${lower(costPhrase(e.pay, card))}`;
+  const tails = e.fx.map((f) => {
+    if (f[0] === 'counter' && f[1] === 1 && payRes.length === 1 && e.pay[payRes[0]] === 1) return `add that many ${many} here`;
+    if (f[0] === 'counter') return `add ${f[1]} ${tok(card, f[1])} here for each ${payRes.length === 1 && e.pay[payRes[0]] > 1 ? e.pay[payRes[0]] : ''}`.trim();
+    if (f[0] === 'chosen') return 'gain that many of one resource of your choice';
+    if (f[0] === 'gain') return `gain ${f[2]} ${R(f[1])} for each`;
+    return lower(fxText(f, card)) + ' for each';
+  });
+  return `${head}: ${tails.join(', ')}`;
+}
+
+function tokenOpText(spec) {
+  const T = D.TOKENS[spec.type];
+  if (spec.op === 'add') return `add ${an(T.one)} to any card that collects ${T.many}`;
+  if (spec.from) {
+    const names = spec.from.map((t) => D.TOKENS[t].one);
+    return `move ${an(names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1])} from any duke’s card onto a card that already has ${T.many}, where it becomes ${an(T.one)}`;
+  }
+  return `move ${an(T.one)} from any duke’s card to another card that collects ${T.many}`;
+}
+
+export function actionText(o, card) {
+  const cost = costPhrase(o.pay, card);
+  const parts = (o.fx || []).map((f) => fxText(f, card));
+  if (o.each) parts.push(eachText(o.each, card));
+  if (o.token) parts.push(tokenOpText(o.token));
+  let body = parts.map((t, i) => (i ? lower(t) : t)).join(', then ');
+  if (!cost) return body;
+  return `${cost}: ${lower(body)}`;
+}
+
+function triggerText(o, card) {
   let when;
   const who = o.who === 'self' ? 'you' : 'any duke';
   switch (o.when) {
@@ -64,12 +117,13 @@ function triggerText(o) {
     case 'trade': when = `Whenever ${who} trade${o.who === 'self' ? '' : 's'}`; break;
     case 'road': when = `Whenever ${who} build${o.who === 'self' ? '' : 's'} a road`; break;
     case 'yearEnd': when = 'At the end of each year'; break;
+    case 'city': when = `Whenever ${who} raise${o.who === 'self' ? '' : 's'} or found${o.who === 'self' ? '' : 's'} a city`; break;
     default: when = o.when;
   }
-  return `${when}: ${o.fx.map(fxText).join(', ').replace(/^G/, 'g').replace(/^A/, 'a').replace(/^D/, 'd')}`;
+  return `${when}: ${lower(o.fx.map((f) => fxText(f, card)).join(', '))}`;
 }
 
-export function fxpLines(fxp) {
+export function fxpLines(fxp, card) {
   const out = [];
   if (!fxp) return out;
   for (const k in fxp.discount || {}) {
@@ -95,7 +149,7 @@ export function fxpLines(fxp) {
   if (fxp.cardBuy) out.push(`Cards cost you ${-fxp.cardBuy} {gold} less to buy`);
   if (fxp.raidImmune) out.push('Your towns and cities cannot be raided');
   if (fxp.peace) out.push('Rivals cannot raid you or target you with cards');
-  for (const o of fxp.on || []) out.push(triggerText(o));
+  for (const o of fxp.on || []) out.push(triggerText(o, card));
   return out;
 }
 
@@ -117,20 +171,26 @@ export function reqText(req) {
   return parts.join(', ');
 }
 
-export function fpText(fp) {
+export function fpText(fp, card) {
   if (!fp) return null;
   if (typeof fp === 'number') return String(fp);
-  if (fp.counter) return fp.counter === 1 ? '1 per token' : `1 per ${fp.counter} tokens`;
+  if (fp.counter) return fp.counter === 1 ? `1 per ${tok(card, 1)} here` : `1 per ${fp.counter} ${tok(card, fp.counter)} here`;
   if (fp.per) return `1 per ${whatText(fp.per, fp.div)}`;
   return null;
 }
 
 export function describeCard(card) {
+  const acts = !card.act ? [] : Array.isArray(card.act) ? card.act : [card.act];
+  const actions = acts.map((o) => actionText(o, card));
+  const lines = (card.fx || []).map((f) => fxText(f, card)).concat(fxpLines(card.fxp, card));
+  if (card.tokenMax) lines.push(`Holds at most ${card.tokenMax} ${D.TOKENS[card.token].many}`);
   return {
     req: reqText(card.req),
-    lines: (card.fx || []).map(fxText).concat(fxpLines(card.fxp)),
-    action: card.act ? `${costPhrase(card.act.pay)}: ${card.act.fx.map(fxText).join(', ')}` : null,
-    fp: fpText(card.fp),
+    lines,
+    actions,
+    action: actions.length ? actions.join(' OR ') : null,
+    token: card.token ? D.TOKENS[card.token].many : null,
+    fp: fpText(card.fp, card),
   };
 }
 
@@ -140,6 +200,9 @@ export function describeHouse(house) {
   return { lines: lines.concat(fxpLines(house.fxp)) };
 }
 
+const RES_ONE = { rm: 'Raw Material', lux: 'Luxury', card: 'Card' };
 export function plain(text) {
-  return text.replace(/\{(\w+)\}/g, (_, r) => D.RES_NAME[r] || r);
+  return text
+    .replace(/\b1 \{(\w+)\}/g, (_, r) => '1 ' + (RES_ONE[r] || D.RES_NAME[r] || r))
+    .replace(/\{(\w+)\}/g, (_, r) => D.RES_NAME[r] || r);
 }

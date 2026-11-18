@@ -23,6 +23,17 @@
 //   ['protect']                  King's Peace until the end of next year
 //   ['advanceTrade', n]          every Trade Track marker climbs n steps
 //   ['resetMove']                all your units regain their movement
+//   ['place', what]              place a 'church', 'cathedral' (in your own settlements, raising
+//                                Faith) or a new 'city' beside water
+//   ['counter', n]               add (or remove) counters on this card; card.token says which
+//                                kind (noble, acolyte, scholar, worker, artisan), card.tokenMax caps them
+//   ['gainPerToken', res, n]     gain n per counter on this card
+//
+// Actions (act): one option object, or an array of options to choose one from each year.
+//   { pay, fx }                       fixed cost and effects ({ tokens: n } in pay removes counters here)
+//   { each: { max, pay, fx, choose } } "up to max": cost and effects per unit; max may be 'tokens'
+//   { token: { op: 'move'|'add', type, from, intoOccupied } }  move a counter between any cards,
+//                                     or add one to any card collecting that kind
 //
 // Passive effects (fxp) and triggers are interpreted by engine.js `mods()`.
 
@@ -54,21 +65,19 @@ c('Aqueduct', 16, P, ['building'], { req: { cities: 2 }, fx: [['prod', 'food', 1
 c('Lighthouse', 9, P, ['building', 'trade'], { fx: [['prod', 'gold', 2]] });
 c('Brickworks', 8, A, ['building'], { fxp: { std: { '*': { stone: -1 } } } });
 c('Beacon Towers', 7, A, ['building', 'military'], { fxp: { move: { soldiers: 1, knights: 1 } } });
-c('University', 18, A, ['building', 'scholar'], { req: { cities: 2 }, fx: [['draw', 2]], act: { pay: { gold: 2 }, fx: [['draw', 1]] }, fp: 2 });
 c('Royal Mint', 20, P, ['building', 'court'], { req: { wealth: [5, 99] }, fx: [['prod', 'gold', 5]] });
 c('Tavern', 5, P, ['building'], { fx: [['prod', 'gold', 1], ['gain', 'gold', 2]], flavor: 'Every road ends at a warm hearth.' });
 c('Harbor', 13, P, ['building', 'trade'], { fx: [['prod', 'gold', 2], ['gain', 'rm', 2]] });
 c('Windmill', 10, P, ['building', 'farming'], { fx: [['prod', 'food', 2]] });
 c("Stonemasons' Lodge", 6, P, ['building'], { fx: [['gain', 'stone', 5]] });
 c('Foundry', 10, A, ['building', 'military'], { act: { pay: { gold: 4 }, fx: [['gain', 'ore', 2]] } });
-c('Bathhouse', 10, P, ['building', 'court'], { fx: [['gain', 'lux', 3]], fp: 1 });
+c('Bathhouse', 10, P, ['building', 'culture'], { fx: [['gain', 'lux', 3]], fp: 1 });
 c('Clocktower', 11, P, ['building', 'scholar'], { req: { tags: { scholar: 1 } }, fp: 2 });
 c('Fortress', 22, P, ['building', 'military'], { req: { power: [3, 99] }, fx: [['track', 'power', 1]], fp: 2 });
 c('Grand Bazaar', 19, P, ['building', 'trade'], { fx: [['track', 'wealth', 1], ['prod', 'gold', 1]] });
 
 // ---------------------------------------------------------------- Military
 c('Mercenary Company', 8, E, ['military'], { fx: [['unit', 'soldiers']], flavor: 'Loyal to the last coin.' });
-c('Knightly Order', 17, P, ['military', 'court'], { fx: [['unit', 'knights']], fp: 1 });
 c('Border Raid', 5, E, ['military'], { req: { military: 1 }, fx: [['steal', 'gold', 5]] });
 c('Cattle Raid', 4, E, ['military'], { req: { military: 1 }, fx: [['steal', 'food', 4]] });
 c('Scorched Fields', 5, E, ['military'], { fx: [['harmProd', 'food', 1]] });
@@ -140,7 +149,7 @@ c('Herbalists', 8, P, ['farming', 'scholar'], { fx: [['draw', 1], ['prod', 'food
 c('Crop Rotation', 5, P, ['farming'], { fx: [['prod', 'food', 1]] });
 c('Great Harvest', 3, E, ['farming'], { fx: [['gain', 'food', 6]] });
 c('Royal Forest', 12, P, ['farming', 'court'], { fx: [['prod', 'rm', 1]], fp: 1 });
-c('Prize Herds', 8, A, ['farming'], { act: { fx: [['counter', 1]] }, fp: { counter: 2 } });
+c('Prize Herds', 8, A, ['farming'], { token: 'worker', act: { fx: [['counter', 1]] }, fp: { counter: 2 } });
 c('Wine Cellars', 9, P, ['farming', 'court'], { fx: [['gain', 'lux', 3]], fp: 1 });
 c('Heavy Plough', 10, P, ['farming', 'scholar'], { fx: [['prod', 'food', 2]] });
 c('Flax Fields', 8, P, ['farming', 'trade'], { fx: [['prod', 'rm', 1]] });
@@ -148,17 +157,16 @@ c('Flax Fields', 8, P, ['farming', 'trade'], { fx: [['prod', 'rm', 1]] });
 // ------------------------------------------------------------------- Faith
 c('Pilgrimage', 14, E, ['faith'], { fx: [['track', 'faith', 1]], flavor: 'A thousand miles on blistered feet.' });
 c('Holy Relic', 9, P, ['faith'], { req: { churches: 1 }, fp: 2 });
-c('Monastery', 18, P, ['faith', 'building'], { fx: [['track', 'faith', 1], ['draw', 1]] });
+c('Priory', 18, P, ['faith', 'building'], { fx: [['track', 'faith', 1], ['draw', 1]] });
 c('Abbey Brewery', 8, P, ['faith', 'farming'], { req: { churches: 1 }, fx: [['prod', 'gold', 2]] });
 c('Tithes', 10, P, ['faith'], { fx: [['prodPer', 'gold', 1, 'churches', 1], ['prod', 'gold', 1]] });
-c('Scriptorium', 12, A, ['faith', 'scholar'], { fxp: { on: [{ when: 'playTag', tag: 'faith', who: 'self', fx: [['draw', 1]] }] } });
 c('Blessing of the Harvest', 7, E, ['faith', 'farming'], { req: { faith: [3, 99] }, fx: [['gain', 'food', 4], ['prod', 'food', 1]] });
 c("Saint's Day Procession", 6, E, ['faith'], { fx: [['gain', 'gold', 2], ['gainPer', 'gold', 4, 'churches', 1]] });
 c('Cathedral School', 12, P, ['faith', 'scholar'], { req: { cathedrals: 1 }, fx: [['draw', 3]], fp: 1 });
 c('Papal Legate', 26, E, ['faith', 'court'], { fx: [['track', 'faith', 2]] });
-c('Indulgences', 8, A, ['faith'], { act: { pay: { gold: 7 }, fx: [['counter', 1]] }, fp: { counter: 1 } });
+c('Indulgences', 8, A, ['faith'], { token: 'acolyte', act: { pay: { gold: 7 }, fx: [['counter', 1]] }, fp: { counter: 1 } });
 c('Hermitage', 4, P, ['faith'], { req: { faith: [0, 5] }, fp: 1 });
-c('Reliquary', 8, A, ['faith'], { fxp: { on: [{ when: 'track', track: 'faith', who: 'any', fx: [['counter', 1]] }] }, fp: { counter: 3 } });
+c('Reliquary', 8, A, ['faith'], { token: 'acolyte', fxp: { on: [{ when: 'track', track: 'faith', who: 'any', fx: [['counter', 1]] }] }, fp: { counter: 3 } });
 c('Mission to the Marches', 11, E, ['faith'], { req: { settlements: 3 }, fx: [['track', 'faith', 1]] });
 c("Bishop's Blessing", 4, E, ['faith', 'court'], { fx: [['gain', 'gold', 3], ['gainPer', 'gold', 3, 'tag:faith', 1]] });
 c('Charity Hospice', 11, P, ['faith', 'building'], { fp: 2 });
@@ -171,7 +179,6 @@ c('Great Revival', 16, E, ['faith'], { req: { churches: 2 }, fx: [['track', 'fai
 // ----------------------------------------------------------------- Scholar
 c('Royal Library', 12, A, ['scholar', 'building'], { fxp: { cardBuy: -1 }, fp: 1 });
 c('Alchemist', 10, A, ['scholar'], { act: { pay: { stone: 2 }, fx: [['gain', 'gold', 6]] }, flavor: 'Lead into gold? No. Stone into gold? Occasionally.' });
-c('Cartographers', 7, P, ['scholar'], { fx: [['draw', 2]] });
 c('Royal Astronomer', 9, P, ['scholar', 'court'], { fx: [['draw', 1]], fp: 1 });
 c("Engineers' Corps", 12, A, ['scholar', 'building'], { fxp: { discount: { building: 2 } } });
 c('Chroniclers', 9, A, ['scholar', 'court'], { fxp: { on: [{ when: 'track', track: 'any', who: 'any', fx: [['gain', 'gold', 1]] }] } });
@@ -179,7 +186,6 @@ c("Philosophers' Circle", 9, A, ['scholar'], { fxp: { on: [{ when: 'playTag', ta
 c('Academy', 11, A, ['scholar'], { fp: { per: 'tag:scholar', div: 2 } });
 c('Printing Press', 17, A, ['scholar', 'trade'], { req: { tags: { scholar: 2 } }, fxp: { discount: { all: 2 } } });
 c('Surveyors', 6, E, ['scholar'], { fx: [['roads', 1], ['draw', 1]] });
-c('Physician', 7, P, ['scholar'], { fx: [['gain', 'food', 2]], fp: 1 });
 c('Tutor to the Prince', 12, P, ['scholar', 'court'], { req: { tags: { scholar: 2 } }, fx: [['rf', 1]] });
 c("Mapmakers' Guild", 6, A, ['scholar', 'trade'], { fxp: { move: { settlers: 1, caravan: 1 } } });
 c('Experimental Forge', 12, P, ['scholar', 'military'], { fx: [['prod', 'ore', 1], ['draw', 1]] });
@@ -189,7 +195,7 @@ c('Travelling Scholar', 3, E, ['scholar'], { fx: [['draw', 2], ['gain', 'gold', 
 // ------------------------------------------------------------------- Court
 c('Royal Wedding', 16, E, ['court'], { fx: [['track', 'wealth', 1], ['draw', 1]], flavor: 'The whole kingdom was invited. The bill went to you.' });
 c('Gift to the Queen', 4, E, ['court'], { fx: [['gain', 'lux', -4], ['track', 'wealth', 1]] });
-c('Minstrels', 6, P, ['court'], { fx: [['gain', 'gold', 2]], fp: 1 });
+c('Minstrels', 6, P, ['culture'], { fx: [['gain', 'gold', 2]], fp: 1 });
 c('Royal Charter', 11, P, ['court'], { fx: [['prod', 'gold', 2], ['draw', 1]] });
 c("Lord Chamberlain's Ear", 13, P, ['court'], { req: { tags: { court: 2 } }, fx: [['rf', 1]] });
 c('Royal Hunt', 7, E, ['court', 'farming'], { fx: [['gain', 'food', 4], ['gain', 'lux', 2]] });
@@ -197,9 +203,8 @@ c('Tax Collectors', 12, P, ['court'], { fx: [['prodPer', 'gold', 1, 'settlements
 c('Royal Protection', 8, A, ['court'], { fxp: { peace: true } });
 c('Coronation Gift', 24, E, ['court'], { fx: [['track', 'wealth', 2]] });
 c('Jewelers', 10, P, ['court', 'trade'], { fx: [['gain', 'lux', 4], ['prod', 'gold', 1]] });
-c('Patron of the Arts', 9, A, ['court'], { act: { pay: { lux: 3 }, fx: [['counter', 1]] }, fp: { counter: 1 } });
 c('Golden Tribute', 12, E, ['court', 'trade'], { req: { wealth: [6, 99] }, fx: [['track', 'wealth', 1]] });
-c('Tapestry Workshop', 13, A, ['trade', 'court'], { fxp: { on: [{ when: 'yearEnd', who: 'self', fx: [['gain', 'lux', 2]] }] } });
+c('Tapestry Workshop', 13, A, ['culture', 'trade'], { fxp: { on: [{ when: 'yearEnd', who: 'self', fx: [['gain', 'lux', 2]] }] } });
 c('Favor of the Court', 3, E, ['court'], { fx: [['gain', 'gold', 3], ['gainPer', 'gold', 2, 'tag:court', 1]] });
 c('Master of Coin', 8, A, ['court'], { fxp: { on: [{ when: 'track', track: 'wealth', who: 'self', fx: [['gain', 'gold', 3]] }] } });
 c('Royal Architect', 9, A, ['court', 'building'], { fxp: { std: { city: { stone: -2, gold: -2 } } } });
@@ -210,6 +215,83 @@ c('Court Favorite', 14, P, ['court'], { req: { wealth: [8, 99] }, fx: [['rf', 1]
 c('Royal Banquet', 9, E, ['court', 'farming'], { fx: [['gain', 'food', -3], ['gain', 'lux', 6]] });
 c('Heraldic College', 10, A, ['court', 'scholar'], { fp: { per: 'tag:court', div: 2 } });
 c('Crown Jewels', 20, P, ['court'], { req: { wealth: [10, 99] }, fx: [['track', 'wealth', 1]], fp: 2 });
+
+// ------------------------------------------------------- Saints and churches
+c('Cathedral of St. Thomas the Doubter', 34, P, ['faith', 'building'], { fx: [['rf', 2], ['place', 'cathedral']], flavor: 'There’s no doubt about those flying buttresses.' });
+c('Church of St. Joseph the Loud', 15, P, ['faith', 'building'], { fx: [['place', 'church']], fp: 1, flavor: 'If you haven’t already, you’ll hear about the new church.' });
+c('St. Peter’s Cathedral', 32, P, ['faith', 'building'], { fx: [['prod', 'gold', 2], ['place', 'cathedral']], fp: 2, flavor: 'An eighth wonder of the Medieval world!' });
+c('St. Rebecca’s Chapel', 28, P, ['faith', 'building', 'farming'], { fx: [['prod', 'food', 1], ['prod', 'gold', 1], ['rf', 1], ['place', 'church']], flavor: 'The gardens at St. Rebecca’s are famous throughout the whole kingdom!' });
+c('Monastery of St. Ezekiel', 8, A, ['faith', 'building'], { token: 'acolyte', act: { pay: { rm: 1 }, fx: [['counter', 1]] }, fp: { counter: 2 }, flavor: 'Those Ezekielites are the handiest monks in the kingdom. Look at this wooden spoon they made for my grandma!' });
+c('The Order of the Sisters of Verity', 15, A, ['faith', 'scholar', 'culture'], { token: 'acolyte', fxp: { on: [{ when: 'playTag', tag: 'scholar', who: 'any', fx: [['counter', 1]] }] }, fp: { counter: 1 }, flavor: 'Books, books, books! Those pious sisters are always asking after books!' });
+c('Sanitarium of St. Sarah the Kind', 18, A, ['faith', 'farming'], { token: 'acolyte', fx: [['prod', 'food', 1]], fxp: { on: [{ when: 'city', who: 'any', fx: [['counter', 2]] }] }, act: { each: { max: 'tokens', pay: { tokens: 1 }, fx: [['gain', 'gold', 3]] } }, flavor: 'Working outside in the fresh air, riding horses, it all does wonders for the health of many grateful people.' });
+c('The Evangelist', 14, A, ['faith'], { act: [
+  { fx: [['gain', 'gold', 2]], token: { op: 'move', type: 'acolyte', from: ['artisan', 'noble', 'worker', 'scholar'], intoOccupied: true } },
+  { fx: [['gain', 'gold', 2]], token: { op: 'add', type: 'acolyte' } },
+  { fx: [['gain', 'gold', 2]] },
+], flavor: 'The Call is always effective. No one can resist. No one.' });
+
+// ------------------------------------------------------------- Court: Nobles
+c('The Conclave of Counts', 9, A, ['court'], { token: 'noble', act: { pay: { lux: 1 }, fx: [['counter', 1]] }, fp: { counter: 2 }, flavor: 'At least we’re better than the Barons, but, oh, if we were Earls…' });
+c('The Body of Barons', 4, A, ['court'], { token: 'noble', act: { pay: { lux: 1 }, fx: [['counter', 1]] }, fp: { counter: 3 }, flavor: 'It could be worse. We could be peasants…' });
+c('The Entourage of Earls', 13, A, ['court'], { token: 'noble', act: { pay: { lux: 2 }, fx: [['counter', 1]] }, fp: { counter: 1 }, flavor: 'We’re almost as important as the Dukes…' });
+c('College of Diplomats', 9, A, ['court'], { act: [
+  { pay: { lux: 1 }, token: { op: 'move', type: 'noble' } },
+  { pay: { lux: 1 }, token: { op: 'add', type: 'noble' } },
+], flavor: 'He was VERY convincing.' });
+c('Lady Hannah’s Loom', 18, A, ['court', 'culture'], { fx: [['prod', 'lux', 1]], act: { each: { max: 3, pay: { rm: 1 }, fx: [['gain', 'lux', 2]] } }, fp: 1, flavor: 'Such fine fabrics! There is no match in all the kingdom for Lady Hannah’s hand!' });
+
+// ------------------------------------------------------------------ Knights
+c('Sir Nathan of Mawwee', 23, P, ['military', 'court'], { fx: [['prod', 'lux', 1], ['unit', 'knights']], fp: 1, flavor: 'What a refined gentleman just stabbed me! I feel honored!' });
+c('Sir Aaron of York', 24, P, ['military', 'trade'], { fx: [['prod', 'rm', 1], ['unit', 'knights']], fp: 1, flavor: 'Industrious. Industrious and violent. A good combination for a knight if you ask me.' });
+c('Sir Paul of Reiland', 26, P, ['military', 'court'], { fx: [['prod', 'gold', 2], ['unit', 'knights']], fp: 1, flavor: 'The most handsome and amiable figure. It’s a wonder he ever needs to lift his sword. Though, his is a bit small for a knight.' });
+
+// ---------------------------------------------------------- Trade: Workers
+c('New Nineveh', 40, P, ['building', 'farming'], { fx: [['prod', 'gold', 2], ['prod', 'food', 1], ['place', 'city']], fp: 1, flavor: 'Nineveh, that great city, repented in the day of her visitation.' });
+c('St. Rachel’s Magnificent Market', 10, A, ['trade', 'farming'], { token: 'worker', act: [
+  { each: { max: 5, pay: { gold: 1 }, fx: [['counter', 1]] } },
+  { each: { max: 'tokens', pay: { tokens: 1 }, fx: [['chosen', 1]], choose: ['gold', 'stone', 'ore', 'food', 'rm', 'lux'] } },
+], flavor: 'You can find almost anything at St. Rachel’s, and everyone there is so helpful.' });
+c('Lady Myra’s Herds', 23, A, ['farming', 'trade'], { token: 'worker', fx: [['prod', 'food', 2], ['prod', 'gold', 1], ['counter', 3]], act: [
+  { minTokens: 1, fx: [['gainPerToken', 'gold', 2], ['counter', -1]] },
+  { fx: [['counter', 1]] },
+], flavor: 'The finest cattle in the land, though their owner is rather a quiet lass.' });
+c('Guildmasters', 9, A, ['trade'], { act: [
+  { token: { op: 'move', type: 'worker' } },
+  { token: { op: 'add', type: 'worker' } },
+], flavor: 'You know, if the boss says go, I suppose I gotta go, right?' });
+c('Shipwrights', 14, A, ['trade', 'building'], { token: 'worker', tokenMax: 3, fx: [['prod', 'gold', 1]], act: { pay: { rm: 2 }, fx: [['counter', 1]] }, fxp: { on: [{ when: 'yearEnd', who: 'self', fx: [['gainPerToken', 'gold', 2]] }] }, flavor: 'Every keel laid is a promise to the sea.' });
+c('Lumber Camp', 10, A, ['trade', 'building'], { token: 'worker', tokenMax: 3, fx: [['counter', 1]], act: { pay: { food: 2 }, fx: [['counter', 1]] }, fxp: { on: [{ when: 'yearEnd', who: 'self', fx: [['gainPerToken', 'rm', 1]] }] }, flavor: 'Timber! And then lunch.' });
+c('Miner’s Guild', 12, A, ['trade', 'building'], { token: 'worker', tokenMax: 3, fx: [['counter', 1]], act: { pay: { food: 3 }, fx: [['counter', 1]] }, fxp: { on: [{ when: 'yearEnd', who: 'self', fx: [['gainPerToken', 'ore', 1]] }] }, flavor: 'Hungry men dig deep.' });
+c('Cooper’s Workshop', 7, A, ['trade', 'farming'], { token: 'worker', tokenMax: 4, act: { pay: { rm: 1 }, fx: [['counter', 1]] }, fxp: { on: [{ when: 'trade', who: 'self', fx: [['gainPerToken', 'gold', 2]] }] }, flavor: 'No wine reaches the capital but in an honest barrel.' });
+
+// -------------------------------------------------------- Learning: Scholars
+c('Circle of Sages', 7, A, ['scholar'], { act: [
+  { pay: { gold: 2 }, token: { op: 'move', type: 'scholar' } },
+  { pay: { gold: 2 }, token: { op: 'add', type: 'scholar' } },
+], flavor: 'Three sages, four opinions, and not one of them will lend you a book.' });
+c('Physicians’ Guild', 13, A, ['scholar', 'farming'], { token: 'scholar', fx: [['prod', 'food', 1]], fxp: { on: [{ when: 'foundTown', who: 'any', fx: [['counter', 1]] }] }, fp: { counter: 3 }, flavor: 'Bleed him twice and call me in the morning.' });
+c('University of St. Bahaveolos', 18, A, ['scholar', 'building'], { req: { cities: 2 }, token: 'scholar', fx: [['counter', 2]], act: [
+  { pay: { gold: 2 }, fx: [['counter', 1]] },
+  { pay: { tokens: 1 }, fx: [['draw', 2]] },
+], fp: { counter: 2 }, flavor: 'Founded by a saint nobody can pronounce, attended by students nobody can afford.' });
+c('Cartographers’ Guild', 9, A, ['scholar', 'trade'], { token: 'scholar', fxp: { on: [{ when: 'road', who: 'self', fx: [['counter', 1]] }] }, act: { pay: { tokens: 1 }, fx: [['resetMove']] }, fp: { counter: 2 }, flavor: 'Here be dragons. Also, a shortcut.' });
+c('Scriptorium', 9, A, ['scholar', 'faith'], { token: 'scholar', fxp: { on: [{ when: 'playTag', tag: 'faith', who: 'self', fx: [['counter', 1]] }] }, fp: { counter: 2 }, flavor: 'Silence, please. Brother Anselm has reached the illuminated letter.' });
+
+// -------------------------------------------------------- Culture: Artisans
+c('Patron of the Arts', 8, A, ['culture'], { act: [
+  { pay: { stone: 1 }, token: { op: 'move', type: 'artisan' } },
+  { pay: { stone: 1 }, token: { op: 'add', type: 'artisan' } },
+], flavor: 'If Opportunity comes knocking on the cottage door, who am I to lock her out?' });
+c('Sculptor’s Workshop', 11, A, ['culture', 'building'], { token: 'artisan', act: { pay: { stone: 2 }, fx: [['counter', 1]] }, fp: { counter: 1 }, flavor: 'He says there’s a duke in this marble somewhere.' });
+c('Amphitheater', 15, A, ['culture', 'building'], { token: 'artisan', fx: [['prod', 'gold', 1]], fxp: { on: [{ when: 'track', track: 'culture', who: 'any', fx: [['counter', 1]] }] }, fp: { counter: 2 }, flavor: 'Tragedy on Tuesdays, comedy on Thursdays, bear-baiting on Saturdays.' });
+c('Royal Monument', 22, P, ['culture', 'court', 'building'], { req: { culture: [4, 99] }, token: 'artisan', fx: [['track', 'culture', 1], ['counter', 2]], fp: { counter: 1 }, flavor: 'Taller than the last king’s. That was the only requirement.' });
+c('Tapestry Trade', 8, A, ['culture', 'trade'], { token: 'artisan', act: [
+  { each: { max: 2, pay: { rm: 1 }, fx: [['counter', 1]] } },
+  { each: { max: 'tokens', pay: { tokens: 1 }, fx: [['gain', 'lux', 2]] } },
+], flavor: 'A hunt, a feast and a unicorn, twelve feet wide and woven to order.' });
+c('The Baths of St. Daisy', 27, P, ['faith', 'building', 'culture'], { fx: [['prod', 'gold', 3], ['track', 'culture', 1]], fp: 1, flavor: 'Built in honor of her love of the waters of the land, shared by all.' });
+c('Troubadours', 13, E, ['culture'], { fx: [['track', 'culture', 1]], flavor: 'Seventeen verses about your victory, and only three of them invented.' });
+c('Grand Masque', 25, E, ['culture', 'court'], { fx: [['track', 'culture', 2]], flavor: 'Everyone came in disguise. The king came as himself, and nobody dared laugh.' });
 
 export const CARDS = list;
 export const CARD_BY_ID = Object.fromEntries(list.map((card) => [card.id, card]));

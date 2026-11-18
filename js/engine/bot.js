@@ -7,7 +7,7 @@ import * as D from './data.js';
 import { CARD_BY_ID } from './cards.js';
 
 const RES_VALUE = { gold: 1, stone: 2, ore: 3, food: 2, rm: 3, lux: 2.5, card: 3.5 };
-const PROD_VALUE = { gold: 5, stone: 6, ore: 7, food: 6, rm: 7 };
+const PROD_VALUE = { gold: 5, stone: 6, ore: 7, food: 6, rm: 7, lux: 6 };
 const SITE_WEIGHT = { food: 1.2, stone: 1.2, rm: 1.3, ore: 1.1, gold: 1.0 };
 
 function progress(state) {
@@ -61,7 +61,10 @@ function fxValue(state, pid, fx, late) {
       case 'gainPer': v += f[2] * RES_VALUE[f[1]] * Math.floor(E.count(state, pid, f[3]) / (f[4] || 1)); break;
       case 'prodPer': v += f[2] * PROD_VALUE[f[1]] * (1.15 - late) * Math.floor(E.count(state, pid, f[3]) / (f[4] || 1)); break;
       case 'choose': v += f[1] * 2.3; break;
-      case 'counter': v += 4; break;
+      case 'chosen': v += f[1] * 2.5; break;
+      case 'counter': v += 2 * Math.max(0, f[1]); break;
+      case 'gainPerToken': v += 3; break;
+      case 'place': v += { church: 14, cathedral: 20, city: 34 }[f[1]]; break;
       case 'protect': v += 3; break;
       case 'advanceTrade': v += 4; break;
       default: v += 1;
@@ -75,7 +78,23 @@ function cardValue(state, pid, cardId) {
   const late = progress(state);
   let v = fxValue(state, pid, card.fx, late);
   if (card.fxp) v += 10 * (1.1 - late);
-  if (card.act) v += 9 * (1.1 - late);
+  if (card.act) {
+    // What one use of the best option is worth, over the years likely left.
+    const yearsLeft = Math.max(1, 9 * (1 - late));
+    let best = 0;
+    for (const o of E.cardActs(card)) {
+      let u = fxValue(state, pid, o.fx, late) + (o.token ? 4 : 0);
+      if (o.each) {
+        const k = o.each.max === 'tokens' ? 2 : Math.min(o.each.max, 3);
+        u += k * fxValue(state, pid, o.each.fx, late);
+        for (const r in o.each.pay || {}) if (r !== 'tokens') u -= k * o.each.pay[r] * RES_VALUE[r];
+      }
+      for (const r in o.pay || {}) if (r !== 'tokens') u -= o.pay[r] * RES_VALUE[r];
+      best = Math.max(best, u);
+    }
+    v += Math.max(4, best) * yearsLeft * 0.5;
+  }
+  if (card.token && card.fp && card.fp.counter) v += (6 / card.fp.counter) * (1.1 - late);
   if (card.fp) v += (typeof card.fp === 'number' ? card.fp : 2) * (3 + 4 * late);
   return v;
 }
@@ -92,6 +111,12 @@ function resolvePending(state, pid) {
     return { type: 'resolve', edge: want !== null && ch.edges.includes(want) ? want : ch.edges[0] };
   }
   if (pd.kind === 'unit') return { type: 'resolve', junction: ch.junctions[0] };
+  if (pd.kind === 'place') {
+    let best = ch.junctions[0];
+    if (pd.what === 'city') best = [...ch.junctions].sort((x, y) => siteScore(state, y) - siteScore(state, x))[0];
+    const bonus = pd.what === 'city' ? E.bonusOptions(state, best).sort((x, y) => PROD_VALUE[y] - PROD_VALUE[x])[0] : undefined;
+    return { type: 'resolve', junction: best, bonus };
+  }
   if (pd.kind === 'choose') {
     const best = [...ch.res].sort((a, b) => RES_VALUE[b] - RES_VALUE[a])[0];
     return { type: 'resolve', res: best };
@@ -148,6 +173,47 @@ function stepToward(state, unit, goal) {
   return best;
 }
 
+// Builds a sensible, legal use of a card's once-a-year action, or null.
+function cardActionFor(state, pid, t) {
+  const card = CARD_BY_ID[t.id];
+  const acts = E.cardActs(card);
+  if (!acts.length) return null;
+  const p = state.players[pid];
+  const n0 = t.counters || 0;
+  const cashesOut = (o) => (o.pay && o.pay.tokens) || (o.each && o.each.max === 'tokens') || (o.fx || []).some((f) => f[0] === 'gainPerToken');
+  // Cash counters in once there are a few; otherwise build them up.
+  const order = acts.map((o, i) => i).sort((x, y) => {
+    const wantCash = n0 >= 3 || progress(state) > 0.8;
+    return (cashesOut(acts[y]) === wantCash) - (cashesOut(acts[x]) === wantCash);
+  });
+  for (const i of order) {
+    const o = acts[i];
+    const goldNeed = ((o.pay && o.pay.gold) || 0) + (o.each && o.each.pay && o.each.pay.gold ? o.each.pay.gold : 0);
+    if (goldNeed && p.res.gold - goldNeed < 8) continue;
+    const a = { type: 'cardAction', card: t.id, opt: i };
+    if (o.each) {
+      a.n = E.eachMax(state, pid, t.id, o);
+      if (o.each.pay && o.each.pay.gold) a.n = Math.min(a.n, Math.max(0, p.res.gold - 10));
+      if (a.n < 1) continue;
+      if (o.each.choose) a.res = [...o.each.choose].sort((x, y) => RES_VALUE[y] - RES_VALUE[x])[0];
+    }
+    if (o.token) {
+      const tt = E.tokenTargets(state, pid, o.token);
+      const mine = tt.to.filter((x) => x.pid === pid);
+      if (!mine.length) continue;
+      a.to = mine[0].card;
+      if (o.token.op === 'move') {
+        const rivals = tt.from.filter((x) => x.pid !== pid && x.card !== a.to)
+          .sort((x, y) => state.players[y.pid].rf - state.players[x.pid].rf || y.n - x.n);
+        if (!rivals.length) continue;
+        a.from = rivals[0].card;
+      }
+    }
+    if (E.check(state, pid, a) === null) return a;
+  }
+  return null;
+}
+
 function chooseAction(state, pid) {
   const p = state.players[pid];
   const late = progress(state);
@@ -163,7 +229,9 @@ function chooseAction(state, pid) {
   for (const u of my) {
     if (D.UNITS[u.type].str === 0) continue;
     const info = E.raidInfo(state, u);
-    if (info && !info.error) {
+    // A regiment raids once, then gets on with marching to the king.
+    const marching = state.tracks.power < D.TRACKS.power.max && (u.raids || 0) >= 1;
+    if (info && !info.error && !marching) {
       const t = state.players[info.victim];
       const loot = [];
       const stock = { ...t.res };
@@ -204,6 +272,8 @@ function chooseAction(state, pid) {
     }
   }
 
+  if (p.res.gold >= 50 && p.res.lux >= 3 && (a = tryAct(state, pid, { type: 'patronage' }))) return a;
+
   // Settlers found a town once they stand on a good site.
   for (const u of my) {
     if (u.type !== 'settlers') continue;
@@ -231,12 +301,10 @@ function chooseAction(state, pid) {
   }
   if (bestCard) return { type: 'playCard', card: bestCard, pay: E.autoPay(state, pid, bestCard) };
 
-  // Blue card actions.
+  // Card actions.
   for (const t of p.tableau) {
-    const card = CARD_BY_ID[t.id];
-    if (!card.act || t.used) continue;
-    if ((card.act.pay?.gold || 0) > p.res.gold - 8) continue;
-    if ((a = tryAct(state, pid, { type: 'cardAction', card: t.id }))) return a;
+    if (t.used) continue;
+    if ((a = cardActionFor(state, pid, t))) return a;
   }
 
   // March.
@@ -280,6 +348,7 @@ function chooseAction(state, pid) {
     const e = roadGoal(state, pid);
     if (e !== null && (a = tryAct(state, pid, { type: 'std', kind: 'road', edge: e }))) return a;
   }
+  if (p.res.lux >= 3 && p.res.lux < 8 && p.res.gold >= (late > 0.6 ? 18 : 26) && (a = tryAct(state, pid, { type: 'patronage' }))) return a;
   if (p.res.gold >= (late > 0.6 ? 22 : 30) && (a = tryAct(state, pid, { type: 'std', kind: 'tribute' }))) return a;
   // Granaries and stockpiles overflowing: take the surplus to market.
   for (const [r, keep] of [['food', 14], ['stone', 14], ['ore', 12]]) {
@@ -338,6 +407,9 @@ export function botAction(state, pid) {
     }
     case 'action': {
       if (state.pending.length) return resolvePending(state, pid);
+      // Computer dukes let everyone's units through, so the roads never jam.
+      const closed = state.order.find((o) => o !== pid && !state.players[pid].passage[o]);
+      if (closed) return { type: 'setPassage', pid: closed, allow: true };
       const a = chooseAction(state, pid);
       if (a) return a;
       return state.turn.n > 0 ? { type: 'endTurn' } : { type: 'pass' };
