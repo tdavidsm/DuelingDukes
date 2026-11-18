@@ -7,6 +7,7 @@ import { TERRAIN } from '../engine/map.js';
 import { Board } from './board3d.js';
 import { h, icon, rich, amount, costRow, toast, clear, modal } from './dom.js';
 import { cardEl, houseEl } from './cardview.js';
+import { actionText } from '../engine/describe.js';
 import { rulesHtml } from './rules.js';
 
 const COLOR = Object.fromEntries(D.PLAYER_COLORS.map((c) => [c.id, c.hex]));
@@ -177,6 +178,10 @@ export class GameScreen {
     if (pd) {
       if (p && p.kind === 'edge' && pd.kind === 'road') this.act({ type: 'resolve', edge: p.id });
       if (p && p.kind === 'junction' && pd.kind === 'unit') this.act({ type: 'resolve', junction: p.id });
+      if (p && p.kind === 'junction' && pd.kind === 'place') {
+        if (pd.what === 'city') this.chooseBonus(p.id, 'Found your new city', (bonus) => this.act({ type: 'resolve', junction: p.id, bonus }));
+        else this.act({ type: 'resolve', junction: p.id });
+      }
       return;
     }
     if (v.phase === 'placeCapitals') {
@@ -258,7 +263,7 @@ export class GameScreen {
       const T = D.TRACKS[id];
       const val = v.tracks[id];
       const bonus = Object.keys(T.bonus).map(Number);
-      return h('div', { class: 'track track-' + id + (val >= T.max ? ' full' : ''), title: `${T.name}: ${T.blurb}. Whoever raises it gains 1 Royal Favor per rank. Bonus ranks: ${bonus.join(', ')}.` },
+      return h('div', { class: 'track track-' + id + (val >= T.max ? ' full' : '') + (T.optional ? ' optional' : ''), title: `${T.name}: ${T.blurb}. Whoever raises it gains 1 Royal Favor per rank. Bonus ranks: ${bonus.join(', ')}.` },
         h('div', { class: 'track-head' }, icon(id), h('span', { class: 'track-name' }, T.name), h('b', {}, `${val}/${T.max}`)),
         h('div', { class: 'track-bar' },
           Array.from({ length: T.max }, (_, i) => h('i', { class: (i < val ? 'on' : '') + (bonus.includes(i + 1) ? ' bonus' : '') }))));
@@ -383,6 +388,9 @@ export class GameScreen {
 
     body.append(h('h4', {}, 'Standard actions'));
     const lux = E.luxCost(v, v.you);
+    const pc = D.PATRONAGE_COST;
+    body.append(item('Patronage for the Arts', costRow(pc), myTurn && this.ok({ type: 'patronage' }), myTurn ? this.why({ type: 'patronage' }) : 'Not your turn',
+      () => this.act({ type: 'patronage' }), `Spend ${pc.gold} Gold and ${pc.lux} Luxuries to raise Culture 1 rank. Culture is not needed to end the game.`));
     body.append(item('Supply Royal Luxuries', costRow({ lux }), myTurn && this.ok({ type: 'supply' }), myTurn ? this.why({ type: 'supply' }) : 'Not your turn',
       () => this.act({ type: 'supply' }), `Spend ${lux} Luxuries to raise Wealth 1 rank.`));
     const donors = myTurn ? this.unitTargets('donate') : [];
@@ -418,7 +426,7 @@ export class GameScreen {
     const myTurn = this.myTurn();
     const resCell = (r) => h('div', { class: 'res res-' + r, title: D.RES_NAME[r] + (r === 'gold' ? ` — income each year: Royal Favor ${me.rf} + production ${me.prod.gold}` : r === 'lux' ? ' — made from unspent Raw Materials at year’s end' : '') },
       icon(r), h('b', {}, me.res[r]),
-      r === 'lux' ? null : h('span', { class: 'prod' }, (r === 'gold' ? me.prod.gold + me.rf : me.prod[r]) >= 0 ? '+' : '', r === 'gold' ? me.prod.gold + me.rf : me.prod[r]),
+      r === 'lux' && !me.prod.lux ? null : h('span', { class: 'prod' }, (r === 'gold' ? me.prod.gold + me.rf : me.prod[r]) >= 0 ? '+' : '', r === 'gold' ? me.prod.gold + me.rf : me.prod[r]),
       h('span', { class: 'res-name' }, D.RES_SHORT[r]));
     const bar = h('div', { class: 'me-bar', style: { '--pc': COLOR[me.color] } },
       h('div', { class: 'me-id' },
@@ -792,6 +800,68 @@ export class GameScreen {
     draw();
   }
 
+  // A card action with choices: how many, which resource, or which cards to move a counter between.
+  showCardAction(cardId) {
+    const card = CARD_BY_ID[cardId];
+    const acts = E.cardActs(card);
+    const st = acts.map(() => ({ n: 1, res: null, from: null, to: null }));
+    const body = h('div', { class: 'card-dialog' });
+    const cardName = (id) => {
+      const f = E.findCard(this.view, id);
+      return `${f.card.name} · ${f.pid === this.view.you ? 'yours' : this.nameOf(f.pid)}`;
+    };
+    const pickList = (list, chosen, onPick, emptyText) => (list.length
+      ? h('div', { class: 'pick-list' }, list.map((x) => h('button', {
+        class: 'btn' + (chosen === x.card ? ' on' : ''), style: { borderLeft: `4px solid ${this.colorOf(x.pid)}` }, onclick: () => onPick(x.card),
+      }, cardName(x.card), h('span', { class: 'muted' }, ` · ${x.n} ${D.tokenWord(E.findCard(this.view, x.card).card.token, x.n)}`))))
+      : h('p', { class: 'muted' }, emptyText));
+    const draw = () => {
+      const v = this.view;
+      const t = this.me.tableau.find((x) => x.id === cardId);
+      const side = h('div', { class: 'card-side' });
+      side.append(h('p', { class: 'lead' }, acts.length > 1 ? 'Choose one of these, once this year:' : 'Once this year:'));
+      acts.forEach((o, i) => {
+        const s = st[i];
+        const box = h('div', { class: 'act-option' }, h('p', {}, rich(actionText(o, card) + '.')));
+        const a = { type: 'cardAction', card: cardId, opt: i };
+        if (o.each) {
+          const max = E.eachMax(v, v.you, cardId, o);
+          s.n = Math.max(1, Math.min(s.n, Math.max(1, max)));
+          a.n = s.n;
+          box.append(h('div', { class: 'stepper' },
+            h('button', { class: 'btn', disabled: s.n <= 1, onclick: () => { s.n--; draw(); } }, '−'),
+            h('span', {}, `${s.n}`, h('span', { class: 'muted' }, ` (at most ${max})`)),
+            h('button', { class: 'btn', disabled: s.n >= max, onclick: () => { s.n++; draw(); } }, '+'),
+            h('button', { class: 'btn quiet', disabled: max < 1, onclick: () => { s.n = max; draw(); } }, 'Most')));
+          if (o.each.choose) {
+            a.res = s.res;
+            box.append(h('div', { class: 'btn-row' }, o.each.choose.map((r) => h('button', { class: 'btn' + (s.res === r ? ' on' : ''), onclick: () => { s.res = r; draw(); } }, icon(r), ' ', D.RES_SHORT[r]))));
+          }
+        }
+        if (o.token) {
+          const tt = E.tokenTargets(v, v.you, o.token);
+          const T = D.TOKENS[o.token.type];
+          if (o.token.op === 'move') {
+            a.from = s.from;
+            box.append(h('h4', {}, 'Take it from'), pickList(tt.from.filter((x) => x.card !== s.to), s.from, (c) => { s.from = c; draw(); }, 'No card has a counter you can take.'));
+          }
+          a.to = s.to;
+          box.append(h('h4', {}, o.token.op === 'move' ? 'Put it on' : `Add ${/^[aeiou]/i.test(T.one) ? 'an' : 'a'} ${T.one} to`),
+            pickList(tt.to.filter((x) => x.card !== s.from), s.to, (c) => { s.to = c; draw(); }, `No card in play collects ${T.many}${o.token.intoOccupied ? ' and already has some' : ''}.`));
+        }
+        const err = this.why(a);
+        box.append(h('div', { class: 'btn-row' },
+          h('button', { class: 'btn primary', dataset: { opt: i }, disabled: !!err, onclick: () => { m.close(); this.act(a); } }, acts.length > 1 ? 'Do this' : 'Use action'),
+          err ? h('span', { class: 'warn' }, err) : null));
+        side.append(box);
+      });
+      side.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => m.close() }, 'Close')));
+      clear(body).append(cardEl(cardId, { counters: t ? t.counters : 0 }), side);
+    };
+    const m = modal({ title: card.name, body, wide: true });
+    draw();
+  }
+
   showMarket() {
     const me = this.me;
     const st = { res: D.SELLABLE.find((r) => me.res[r] > 0), n: 1 };
@@ -823,7 +893,7 @@ export class GameScreen {
     const sc = v.phase === 'ended' ? v.result.scores[pid] : v.scores && v.scores[pid];
     body.append(h('div', { class: 'stat-row' },
       h('span', { class: 'stat' }, icon('rf'), h('b', {}, p.rf), ' Royal Favor'),
-      D.RES.map((r) => h('span', { class: 'stat' }, icon(r), h('b', {}, p.res[r]), r === 'lux' ? '' : h('span', { class: 'prod' }, ` ${p.prod[r] >= 0 ? '+' : ''}${p.prod[r]}`))),
+      D.RES.map((r) => h('span', { class: 'stat' }, icon(r), h('b', {}, p.res[r]), r === 'lux' && !p.prod.lux ? '' : h('span', { class: 'prod' }, ` ${p.prod[r] >= 0 ? '+' : ''}${p.prod[r]}`))),
       sc ? h('span', { class: 'stat' }, icon('fp'), h('b', {}, sc.total), ' points now') : null));
     body.append(h('div', { class: 'stat-row' },
       D.TAGS.map((t) => h('span', { class: 'stat' }, icon(t), h('b', {}, E.tagCount(v, pid, t)))),
@@ -837,10 +907,15 @@ export class GameScreen {
       const card = CARD_BY_ID[t.id];
       let footer = null;
       if (card.act) {
+        const acts = E.cardActs(card);
+        const simple = acts.length === 1 && !acts[0].each && !acts[0].token;
         const a = { type: 'cardAction', card: t.id };
-        const reason = mine ? this.why(a) : null;
+        const reason = !mine ? null : t.used ? 'Already used this year' : !this.myTurn() ? 'Not your turn' : simple ? this.why(a) : null;
         footer = h('div', { class: 'card-use' }, mine
-          ? h('button', { class: 'btn primary', disabled: !!reason, title: reason || '', onclick: () => { m.close(); this.act(a); } }, t.used ? 'Used this year' : 'Use action')
+          ? h('button', {
+            class: 'btn primary', disabled: !!reason, title: reason || '', dataset: { use: t.id },
+            onclick: () => { m.close(); if (simple) this.act(a); else this.showCardAction(t.id); },
+          }, t.used ? 'Used this year' : simple ? 'Use action' : 'Use action…')
           : h('span', { class: 'muted' }, t.used ? 'Used this year' : 'Action ready'));
       }
       grid.append(cardEl(t.id, { counters: t.counters, footer }));

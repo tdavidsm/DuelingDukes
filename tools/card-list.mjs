@@ -12,7 +12,7 @@ const outDir = resolve(process.argv[2] || 'docs');
 mkdirSync(outDir, { recursive: true });
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const TYPE = { project: 'Project', active: 'Standing', event: 'Event' };
+const TYPE = { project: 'Commission', active: 'Charter', event: 'Event' };
 const TAG_ORDER = [...D.TAGS, 'none'];
 const groupOf = (c) => c.tags[0] || 'none';
 const groupName = (g) => (g === 'none' ? 'Untagged' : D.TAG_NAME[g]);
@@ -31,7 +31,9 @@ function row(card) {
   n++;
   const d = describeCard(card);
   const effect = d.lines.map((l) => `<div>${esc(plain(l))}.</div>`).join('')
-    + (d.action ? `<div class="act"><b>Action, once a year:</b> ${esc(plain(d.action))}.</div>` : '')
+    + (d.actions.length === 1 ? `<div class="act"><b>Action, once a year:</b> ${esc(plain(d.actions[0]))}.</div>` : '')
+    + (d.actions.length > 1 ? `<div class="act"><b>Action, once a year, choose one:</b><ul>${d.actions.map((a) => `<li>${esc(plain(a))}.</li>`).join('')}</ul></div>` : '')
+    + (card.token ? `<div class="pay">Collects ${D.TOKENS[card.token].many}</div>` : '')
     + (card.flavor ? `<div class="flavor">“${esc(card.flavor)}”</div>` : '');
   return `<tr class="t-${card.type}">
     <td class="num">${n}</td>
@@ -59,7 +61,7 @@ const avg = (costs.reduce((a, b) => a + b, 0) / costs.length).toFixed(1);
 const bands = [[0, 5], [6, 10], [11, 15], [16, 20], [21, 99]].map(([lo, hi]) => ({
   label: hi >= 99 ? `${lo}+` : `${lo}–${hi}`, n: costs.filter((c) => c >= lo && c <= hi).length,
 }));
-const tracks = { power: 0, faith: 0, wealth: 0 };
+const tracks = { power: 0, faith: 0, wealth: 0, culture: 0 };
 let rfCards = 0;
 let fpCards = 0;
 let attackCards = 0;
@@ -111,20 +113,22 @@ const html = `<!doctype html>
   .t-project .pill { background: #3c7a4b; } .t-active .pill { background: #2f5d9b; } .t-event .pill { background: #a23b2e; }
   .pay { font-size: 7.6pt; color: #7a6650; font-weight: normal; }
   .act { margin-top: 1pt; }
+  .act ul { margin: 1pt 0 0; padding-left: 12pt; }
   .flavor { font-style: italic; color: #6b5538; font-size: 8.4pt; margin-top: 1pt; }
   .attack { color: #a23b2e; font-weight: bold; }
 </style></head><body>
 <h1>Dueling Dukes — Card List</h1>
 <div class="sub">All ${CARDS.length} project cards and ${D.HOUSES.length} noble houses, generated from the game’s own card data. The blank column is for your notes.</div>
 <div class="summary">
-  <div><b>Card types</b>${byType.project} Projects · ${byType.active} Standing · ${byType.event} Events</div>
+  <div><b>Card types</b>${byType.project} Commissions · ${byType.active} Charters · ${byType.event} Events · ${CARDS.filter((c) => c.token).length} collect counters</div>
   <div><b>Cost</b>average ${avg} Gold · ${bands.map((b) => `${b.label}: ${b.n}`).join(' · ')}</div>
   <div><b>Tags (cards carrying each)</b>${D.TAGS.map((t) => `${D.TAG_NAME[t]} ${tagCount[t]}`).join(' · ')}</div>
-  <div><b>Scoring cards</b>Power ${tracks.power} · Faith ${tracks.faith} · Wealth ${tracks.wealth} cards raise tracks · ${rfCards} give Royal Favor · ${fpCards} carry Favor Points · ${attackCards} target rivals (marked <span class="attack">⚔</span>)</div>
+  <div><b>Scoring cards</b>Power ${tracks.power} · Faith ${tracks.faith} · Wealth ${tracks.wealth} · Culture ${tracks.culture} cards raise tracks · ${rfCards} give Royal Favor · ${fpCards} carry Favor Points · ${attackCards} target rivals (marked <span class="attack">⚔</span>)</div>
 </div>
 <p class="key"><b>Paying for cards.</b> Every card costs Gold. Tags let goods help pay:
 ${Object.keys(D.TAG_PAY).map((t) => `${D.TAG_NAME[t]} — ${D.RES_SHORT[D.TAG_PAY[t].res]} worth ${D.TAG_PAY[t].value} Gold each`).join('; ')}.
-<b>Projects</b> are built once and stay in play; <b>Standing</b> cards give a lasting effect or a once-a-year action; <b>Events</b> happen once and their tags do not stay in play.
+<b>Commissions</b> are built once and stay in play; <b>Charters</b> give a lasting effect or a once-a-year action; <b>Events</b> happen once and their tags do not stay in play.
+<b>Counters</b> (${D.TOKEN_IDS.map((t) => D.TOKENS[t].many).join(', ')}) collect on the cards that say so.
 Cards are grouped by their first tag and listed alphabetically within each group.</p>
 ${groups.map((grp) => `
 <h2>${groupName(grp.g)} (${grp.cards.length})</h2>

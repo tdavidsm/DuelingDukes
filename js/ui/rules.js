@@ -17,6 +17,8 @@ export function rulesHtml() {
 reached their height, the game ends after that year and the duke with the most Royal Favor plus <b>Favor Points</b> ${ic('fp')} wins.
 Whoever raises a track gains 1 Royal Favor per rank. Royal Favor is also income: every year you collect Gold equal to
 your Royal Favor plus your Gold production.</p>
+<p>There is a fourth track, <b>Culture</b> ${ic('culture')} (${D.TRACKS.culture.max} ranks). It is raised the same way and pays the same 1 Royal Favor per rank,
+but it is <b>not needed to end the game</b>.</p>
 
 <h3>The map</h3>
 <p>Towns, cities and units stand on the <b>junctions</b> where hexes meet; roads run along the <b>edges</b>.
@@ -44,9 +46,17 @@ units regain their movement, and the Trade Track markers that nobody traded for 
 </ol>
 
 <h3>Cards</h3>
-<p>Cards cost Gold. <span class="chip green">Projects</span> are built once. <span class="chip blue">Standing</span> cards give a lasting
-effect or an action usable once a year. <span class="chip red">Events</span> happen once and their tags do not stay in play. Tags let you pay with goods:</p>
+<p>Cards cost Gold. <span class="chip green">Commissions</span> are built once and stay in play. <span class="chip blue">Charters</span> give a lasting
+effect or an action usable once a year; when a Charter offers several actions, choose one each year. <span class="chip red">Events</span> happen once and their tags do not stay in play. Tags let you pay with goods:</p>
 <ul>${tagPay}</ul>
+<p>Cards that place a <b>church or cathedral</b> put it in one of your own settlements and raise Faith 1 rank, just as building one does.
+A cathedral from a card may go in a city that has no church yet.</p>
+
+<h3>Counters on cards</h3>
+<p>Some cards collect one kind of counter: ${['noble', 'acolyte', 'scholar', 'worker', 'artisan'].map((t) => `${ic('tok-' + t)} <b>${D.TOKENS[t].many}</b> (${D.TOKENS[t].theme})`).join(', ')}.
+Counters earn Favor Points on the card that holds them, or are traded in for other benefits, as each card says. Some cards
+<b>move a counter from any duke’s card to another card that collects that kind</b>, including your own, or add one to any such card.
+Counters on the cards of a duke under the King’s Peace cannot be taken. Cards that hold a limited number say so.</p>
 
 <h3>Standard improvements</h3>
 <p>If you lack Stone, Ore or Food for an improvement you may pay ${D.SUBSTITUTE_COST}${ic('gold')} for each missing unit (done automatically).</p>
@@ -57,6 +67,7 @@ effect or an action usable once a year. <span class="chip red">Events</span> hap
 <ul>
 <li><b>Move a unit</b> along edges. Settlers and Soldiers move 2 edges a year, Caravans 3, Knights 4. <b>Edges with a road are free</b>, whoever built it. Movement may be split over several actions.</li>
 <li><b>Donate a regiment</b>: remove your Soldiers or Knights at the kingdom’s capital to raise Power 1 rank (Knights also earn ${D.KNIGHT_DONATION_GOLD}${ic('gold')}).</li>
+<li><b>Patronage for the Arts</b>: spend ${D.PATRONAGE_COST.gold}${ic('gold')} and ${D.PATRONAGE_COST.lux}${ic('lux')} to raise Culture 1 rank.</li>
 <li><b>Supply Royal Luxuries</b>: spend ${D.LUX_PER_WEALTH}${ic('lux')} to raise Wealth 1 rank.</li>
 <li><b>Trade with the capital</b> (your Caravan must be there; it stays): pay ${D.TRADE_COST.rm}${ic('rm')}, ${D.TRADE_COST.ore}${ic('ore')} or ${D.TRADE_COST.gold}${ic('gold')} and collect from the Trade Track. One trade per Caravan per year.</li>
 <li><b>Trade with a duke</b> (your Caravan must be at their duchy capital; it is used up): give 2 of one resource for each 1 you take of another, up to ${D.DUKE_TRADE_MAX}. They cannot refuse.</li>
@@ -93,7 +104,7 @@ Each item is 1 good, or 2${ic('gold')}. A settlement can be raided once a year. 
 <p><b>Honors</b>: any duke may fund an honor (${D.HONOR_COSTS.join(', then ')}${ic('gold')}; three in all). At the end, the leader in that field scores ${D.HONOR_FP[0]}${ic('fp')} and the runner-up ${D.HONOR_FP[1]}${ic('fp')} (no runner-up with two dukes).</p>
 
 <h3>Final scoring</h3>
-<p>Royal Favor + Favor Points on cards + ${D.FP_TOWN} per town + ${D.FP_CITY} per city (your capital included) + ${D.FP_CATHEDRAL} per cathedral + Titles + Honors. Ties go to the richer duke.</p>
+<p>Royal Favor + Favor Points on cards (including those earned by counters) + ${D.FP_TOWN} per town + ${D.FP_CITY} per city (your capital included) + ${D.FP_CATHEDRAL} per cathedral + Titles + Honors. Ties go to the richer duke.</p>
 
 <h3>Controls</h3>
 <p>Drag to slide the map, right-drag (or two fingers) to turn it, scroll or pinch to zoom. Click one of your units to move or use it.</p>

@@ -3,7 +3,7 @@
 A medieval engine-building strategy game for 2–5 players, played in the browser on a 3D map.
 
 Each player is a duke in a small kingdom, trying to impress the king and be named **King's Chancellor**.
-You settle the land, build projects from a deck of 162 cards, trade with the capital, march regiments
+You settle the land, build projects from a deck of 193 cards, trade with the capital, march regiments
 to the king's banner, and now and then raid a neighbour. The structure follows the engine-building
 style of *Terraforming Mars* (shared tracks that everyone pushes, production, project cards, standard
 projects, milestones and awards), with a hex map of junction settlements and roads in the manner of *Catan*,
@@ -55,8 +55,9 @@ not load the scripts.)
 **Aim.** Have the most Royal Favor plus Favor Points when the game ends. Royal Favor starts at 20 and
 is also income: each year you collect Gold equal to your Royal Favor plus your Gold production.
 
-**The three tracks.** Power (10 ranks), Faith (15) and Wealth (20). Whoever raises a track gains
-1 Royal Favor per rank. When all three are full, the game ends after that year.
+**The tracks.** Power (10 ranks), Faith (15) and Wealth (20). Whoever raises a track gains
+1 Royal Favor per rank. When all three are full, the game ends after that year. A fourth track,
+**Culture** (15 ranks), pays Royal Favor the same way but is not needed to end the game.
 
 **The map.** Towns, cities and units stand on the junctions where hexes meet; roads run along edges.
 A settlement gains +1 production per neighbouring hex: Grassland → Food, Hills → Stone, Forest →
@@ -83,7 +84,8 @@ Material into a Luxury and each city 2; then production arrives.
 | Establish Trading Post | 10 Gold | See the Trade Track |
 
 **Standard actions.** Move a unit; donate a regiment at the kingdom's capital (Power +1); supply
-8 Luxuries (Wealth +1); trade with the capital; trade with a duke; skirmish; raid; claim a Title;
+8 Luxuries (Wealth +1); Patronage for the Arts, 12 Gold and 3 Luxuries (Culture +1); trade with the
+capital; trade with a duke; skirmish; raid; claim a Title;
 fund an Honor; sell cards or goods for 1 Gold each.
 
 **The Trade Track.** One shared tracker with a marker for each of Gold, Stone, Ore, Food, Raw Materials,
@@ -93,9 +95,14 @@ traded for climbs one step at year's end. Each marker can be traded once a year,
 once a year. A Trading Post raises its marker's floor by a step and pays its owner a little whenever
 anyone trades there.
 
-**Cards.** Projects (green), Standing cards with lasting effects or once-a-year actions (blue), and
-Events (red). Tags let goods help pay: Stone for Building (2 Gold each), Ore for Military (3),
-Raw Materials for Trade (3), Food for Farming (2), Luxuries for Court (2).
+**Cards.** Commissions (green, built once), Charters with lasting effects or once-a-year actions (blue),
+and Events (red). Tags let goods help pay: Stone for Building (2 Gold each), Ore for Military (3),
+Raw Materials for Trade (3), Food for Farming (2), Luxuries for Court and Culture (2).
+
+**Counters.** Nobles, Acolytes, Scholars, Workers and Artisans collect on the cards that say so, for
+Favor Points or to trade in for other benefits. Some cards move a counter from any duke's card to another
+card that collects that kind (a duke under the King's Peace is protected); The Evangelist converts other
+counters into Acolytes. Cards that place a church or cathedral put it in your own settlement and raise Faith.
 
 **Units.** One unit per junction, except at the kingdom's capital, which is neutral ground. Settlers
 and Soldiers move 2 edges a year, Caravans 3, Knights 4; edges with a road are free. Rivals' units
@@ -115,7 +122,10 @@ admit only Caravans.
 The original description left a number of things open. These are the choices made, all of them
 constants in `js/engine/data.js` or `js/engine/cards.js` and easy to change:
 
-- **End of the game**: at the end of the year in which all three tracks are full.
+- **End of the game**: at the end of the year in which Power, Faith and Wealth are full.
+- **Patronage for the Arts** costs 12 Gold and 3 Luxuries, not the suggested 10 and 3: at 10 it was
+  the cheapest way to buy Royal Favor (Royal Tribute is 18 Gold, and 3 Luxuries are worth about 7), and in
+  simulations Culture filled up in nearly every game.
 - **Royal Favor as income**, starting at 20, as Terraform Rating works in Terraforming Mars.
 - **Luxuries** come from Raw Materials you did *not* spend during the year, converted before production
   arrives. That makes trading (3 Raw Materials) and Luxuries compete for the same goods.
@@ -139,7 +149,7 @@ index.html            the page
 css/style.css         all styling
 js/engine/            the rules, with no browser dependencies
   data.js             costs, tracks, Trade Track tables, houses, titles, honors
-  cards.js            the 162 project cards, as data
+  cards.js            the 193 project cards, as data
   map.js              hex geometry and map generation
   engine.js           game state, legal-move checks, every action, scoring
   describe.js         generates card text from card data
@@ -157,7 +167,7 @@ Playwright is installed, `card-list.pdf` (US Letter, landscape): every card and 
 type, tags, requirements, effects, Favor Points and a blank notes column. It reads the game's own card
 data, so rerun it after changing cards.
 
-**Card art.** `tools/art/generate-art.mjs` draws art for all 162 cards and 10 houses in one run with
+**Card art.** `tools/art/generate-art.mjs` draws art for all 193 cards and 10 houses in one run with
 Google's Gemini image models ("Nano Banana"). Each prompt is built from the card's name, type, tags,
 rules text and flavor line, plus a shared style in `tools/art/style.txt`.
 

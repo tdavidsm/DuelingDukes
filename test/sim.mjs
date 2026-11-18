@@ -36,6 +36,15 @@ function invariants(state, where) {
     seen.set(u.at, u);
   }
   for (const t of D.TRACK_IDS) if (state.tracks[t] > D.TRACKS[t].max) fail(`${where}: track ${t} overflow`);
+  for (const pid of state.order) {
+    for (const t of state.players[pid].tableau) {
+      const card = CARDS.find((c) => c.id === t.id);
+      const n = t.counters || 0;
+      if (n < 0 || !Number.isInteger(n)) fail(`${where}: ${t.id} has ${n} counters`);
+      if (n && !card.token) fail(`${where}: ${t.id} holds counters but collects none`);
+      if (card.tokenMax && n > card.tokenMax) fail(`${where}: ${t.id} holds ${n}, more than ${card.tokenMax}`);
+    }
+  }
   const all = [...state.deck, ...state.discard];
   for (const pid of state.order) {
     const p = state.players[pid];

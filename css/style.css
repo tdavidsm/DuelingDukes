@@ -102,6 +102,8 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .track-power .track-bar i.on { background: #d0584a; }
 .track-faith .track-bar i.on { background: #6f9ae0; }
 .track-wealth .track-bar i.on { background: #e3b93f; }
+.track-culture .track-bar i.on { background: #d073a6; }
+.track.optional .track-name::after { content: ' (optional)'; text-transform: none; letter-spacing: 0; opacity: .6; }
 .track.full .track-head b { color: var(--gold-2); }
 .hud-right { display: flex; gap: 6px; align-items: center; }
 .room { font-family: var(--display); letter-spacing: 0.2em; padding: 4px 8px; border: 1px dashed var(--line); border-radius: 6px; color: var(--gold-2); }
@@ -190,9 +192,15 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .card-text { padding: 7px 9px 4px; flex: 1; }
 .card-text p { margin: 0 0 5px; }
 .card-action { background: rgba(47,93,155,.12); border-left: 3px solid var(--blue); padding: 3px 6px; border-radius: 0 4px 4px 0; }
-.card-counters { font-weight: 700; color: var(--blue); }
+.card-action ul { margin: 2px 0 0; padding-left: 15px; }
+.card-action li { margin-bottom: 2px; }
+.card-tokens { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; flex: none; opacity: .75; }
+.card-tokens .ico { width: 22px; height: 22px; }
+.card-tokens.some { opacity: 1; }
+.card.small .card-tokens .ico { width: 16px; height: 16px; }
 .card-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; padding: 3px 8px 7px; min-height: 30px; }
-.card-flavor { font-style: italic; font-size: 11.5px; color: var(--ink-soft); }
+.card-flavor { font-style: italic; font-size: 11.5px; color: var(--ink-soft); flex: 1 1 100%; order: -1; }
+.card-foot { flex-wrap: wrap; }
 .card-fp { display: flex; align-items: center; gap: 3px; font-size: 13px; white-space: nowrap; }
 .card-fp .ico { width: 22px; height: 22px; }
 .card-use { padding: 0 8px 8px; }
@@ -225,6 +233,10 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .lead { opacity: 0.9; }
 .modal-foot { display: flex; align-items: center; gap: 12px; position: sticky; bottom: -16px; background: var(--wood); margin: 8px -16px -16px; padding: 10px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .card-dialog { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.act-option { background: rgba(0,0,0,.25); border: 1px solid var(--wood-3); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.act-option h4 { margin: 8px 0 4px; }
+.pick-list { display: flex; flex-direction: column; gap: 4px; max-height: 170px; overflow: auto; }
+.pick-list .btn { justify-content: flex-start; white-space: normal; text-align: left; }
 .card-side { flex: 1; min-width: 230px; }
 .stepper { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
 .stepper .btn { width: 34px; font-size: 18px; padding: 3px 0; }

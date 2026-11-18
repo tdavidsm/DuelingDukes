@@ -65,10 +65,18 @@ const SVG = {
   knights: '<path d="M12 2.500 20 5.500v6.500c0 5-3.500 8-8 9.500-4.500-1.500-8-4.500-8-9.500V5.500z" fill="currentColor" stroke="#1d1611" stroke-width="1.2"/><path d="M12 6.500l1.600 3.400 3.700.400-2.700 2.500.700 3.700-3.300-1.900-3.300 1.900.700-3.700-2.700-2.500 3.700-.400z" fill="#f6d67a"/>',
   caravan: '<rect x="3.500" y="6" width="17" height="10" rx="1.500" fill="currentColor" stroke="#1d1611" stroke-width="1.2"/><path d="M3.500 11h17M12 6v10" stroke="#f6ecd2" stroke-width="1.400"/><circle cx="7.500" cy="18.500" r="2.300" fill="#1d1611"/><circle cx="16.500" cy="18.500" r="2.300" fill="#1d1611"/>',
 };
+SVG.culture = disc('#b0457a', '<path d="M8 5.500h8v2.500c0 2.200-1.800 4-4 4s-4-1.800-4-4z" fill="#fff"/><path d="M12 12v4.500M8.500 18.500h7" stroke="#fff" stroke-width="1.800" stroke-linecap="round"/><path d="M6 6.500C4.500 6.500 4.500 9 6.500 9.300M18 6.500c1.500 0 1.500 2.500-.500 2.800" fill="none" stroke="#fff" stroke-width="1.300"/>');
+// Counters that collect on cards.
+const pawn = (fill, extra = '') => `<circle cx="12" cy="7" r="3.600" fill="${fill}" stroke="#1d1611" stroke-width="1.200"/><path d="M5.500 21c0-5 2.800-8.500 6.500-8.500s6.500 3.500 6.500 8.500z" fill="${fill}" stroke="#1d1611" stroke-width="1.200"/>${extra}`;
+SVG['tok-noble'] = pawn('#7d4bc4', '<path d="M8.800 4.200 9.500 1.800l1.300 1.400L12 1.200l1.200 2 1.300-1.400.700 2.400z" fill="#f6d67a" stroke="#1d1611" stroke-width=".700"/>');
+SVG['tok-acolyte'] = pawn('#3d5a99', '<path d="M11.100 14.500h1.800v2h2v1.700h-2v2.300h-1.800v-2.300h-2v-1.700h2z" fill="#f6ecd2"/>');
+SVG['tok-scholar'] = pawn('#2f7f86', '<path d="M7.500 5.300 12 3.300l4.500 2-4.500 2z" fill="#1d1611"/>');
+SVG['tok-worker'] = pawn('#b8862b', '<path d="M9.500 15.500 15 21M13.500 14.500l2.500-1 1 2.500-2.500 1z" stroke="#1d1611" stroke-width="1.200" fill="#9aa0a6"/>');
+SVG['tok-artisan'] = pawn('#b0457a', '<path d="M14.500 15c1.500-1 3-.500 3 1s-1.500 2.500-3 2c-1 .500-2 0-2-1s1-1.500 2-2z" fill="#f6ecd2" stroke="#1d1611" stroke-width=".600"/>');
 SVG.power = SVG.military;
 SVG.wealth = SVG.gold;
 
-const TITLES = { ...RES_NAME, ...TAG_NAME, rf: 'Royal Favor', fp: 'Favor Points', power: 'Power', wealth: 'Wealth', event: 'Event' };
+const TITLES = { ...RES_NAME, ...TAG_NAME, rf: 'Royal Favor', fp: 'Favor Points', power: 'Power', wealth: 'Wealth', culture: 'Culture', event: 'Event', 'tok-noble': 'Nobles', 'tok-acolyte': 'Acolytes', 'tok-scholar': 'Scholars', 'tok-worker': 'Workers', 'tok-artisan': 'Artisans' };
 
 export function svgString(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${SVG[name] || ''}</svg>`;

@@ -2,10 +2,10 @@
 
 import { h, icon, rich } from './dom.js';
 import { CARD_BY_ID } from '../engine/cards.js';
-import { HOUSE_BY_ID, TAG_NAME } from '../engine/data.js';
+import { HOUSE_BY_ID, TAG_NAME, TOKENS, tokenWord } from '../engine/data.js';
 import { describeCard, describeHouse } from '../engine/describe.js';
 
-const TYPE_LABEL = { project: 'Project', active: 'Standing', event: 'Event' };
+export const TYPE_LABEL = { project: 'Commission', active: 'Charter', event: 'Event' };
 
 export function cardEl(cardId, opts = {}) {
   const card = CARD_BY_ID[cardId];
@@ -28,9 +28,14 @@ export function cardEl(cardId, opts = {}) {
   d.req ? h('div', { class: 'card-req' }, 'Requires ', d.req) : null,
   h('div', { class: 'card-text' },
     d.lines.map((line) => h('p', {}, rich(line + '.'))),
-    d.action ? h('p', { class: 'card-action' }, h('b', {}, 'Action (once a year) '), rich(d.action + '.')) : null,
-    opts.counters ? h('p', { class: 'card-counters' }, `Tokens on this card: ${opts.counters}`) : null),
+    d.actions.length === 1 ? h('p', { class: 'card-action' }, h('b', {}, 'Action, once a year: '), rich(d.actions[0] + '.')) : null,
+    d.actions.length > 1 ? h('div', { class: 'card-action' }, h('b', {}, 'Action, once a year, choose one:'),
+      h('ul', {}, d.actions.map((t) => h('li', {}, rich(t + '.'))))) : null),
   h('div', { class: 'card-foot' },
+    card.token ? h('span', {
+      class: 'card-tokens' + (opts.counters ? ' some' : ''),
+      title: opts.counters !== undefined ? `${opts.counters || 0} ${tokenWord(card.token, opts.counters || 0)} on this card` : `Collects ${TOKENS[card.token].many}`,
+    }, icon('tok-' + card.token), opts.counters !== undefined ? h('b', {}, String(opts.counters || 0)) : null) : null,
     h('span', { class: 'card-flavor' }, card.flavor || ''),
     d.fp ? h('span', { class: 'card-fp', title: 'Favor Points at the end of the game' }, icon('fp'), h('b', {}, d.fp)) : null),
   opts.footer || null);

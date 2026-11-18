@@ -30,6 +30,8 @@ function fresh(seed = 7, n = 3) {
   return s;
 }
 const turn = (s) => s.turn.pid;
+// Give a duke a fresh turn, so a test can take more than two actions in a row.
+const again = (s, pid) => { s.turn = { pid, n: 0, end: false }; };
 const other = (s, k = 1) => s.order[(s.order.indexOf(turn(s)) + k) % s.order.length];
 function put(s, owner, type, at) {
   const u = { id: s.nextUnit++, owner, type, at, moved: 0, acted: false, done: false };
@@ -375,6 +377,203 @@ function openGround(s, avoid = []) {
   eq(p.res.lux, 2, 'Tapestry Workshop pays out at year’s end');
   eq(s.players[rival].res.lux, 20 + 2, 'and only for its owner (the others just converted 2)');
   ok(!p.tableau[1].used, 'card actions refresh each year');
+}
+
+// ---- Culture
+{
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  const rf = p.rf;
+  eq(E.apply(s, me, { type: 'patronage' }), null, 'Patronage for the Arts');
+  eq(s.tracks.culture, 1, 'Culture rises');
+  eq(p.rf, rf + 1, 'and gives Royal Favor');
+  eq(p.res.gold, 100 - D.PATRONAGE_COST.gold, 'costs Gold');
+  eq(p.res.lux, 20 - D.PATRONAGE_COST.lux, 'and Luxuries');
+  p.res.lux = 2;
+  ok(/Luxuries/.test(E.check(s, me, { type: 'patronage' })), 'needs the Luxuries');
+  const s2 = fresh(9);
+  Object.assign(s2.tracks, { power: 10, faith: 15, wealth: 20, culture: 0 });
+  while (s2.phase === 'action') E.apply(s2, turn(s2), { type: 'pass' });
+  eq(s2.phase, 'ended', 'the game ends with Culture empty: it is optional');
+}
+
+// ---- cards that place churches, cathedrals and cities
+{
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  const cap = capitalOf(s, me);
+  p.hand = ['church_of_st_joseph_the_loud', 'cathedral_of_st_thomas_the_doubter', 'new_nineveh'];
+  const f0 = s.tracks.faith;
+  eq(E.apply(s, me, { type: 'playCard', card: 'church_of_st_joseph_the_loud' }), null, 'play a church card');
+  eq(s.pending[0] && s.pending[0].kind, 'place', 'it asks where');
+  ok(E.pendingChoices(s).junctions.every((j) => s.settlements[j].owner === me), 'only your own settlements');
+  eq(E.apply(s, me, { type: 'resolve', junction: cap }), null, 'place it');
+  eq(s.settlements[cap].church, 1, 'a church stands there');
+  eq(s.tracks.faith, f0 + 1, 'and Faith rises, as for building one');
+  const s2 = fresh(13);
+  const m2 = turn(s2);
+  const p2 = s2.players[m2];
+  p2.hand = ['cathedral_of_st_thomas_the_doubter', 'church_of_st_joseph_the_loud'];
+  const c2 = capitalOf(s2, m2);
+  s2.settlements[c2].church = 1;
+  ok(/church/.test(E.check(s2, m2, { type: 'playCard', card: 'church_of_st_joseph_the_loud' })), 'a church card needs a settlement without a church');
+  s2.settlements[c2].church = 0;
+  const rf = p2.rf;
+  eq(E.apply(s2, m2, { type: 'playCard', card: 'cathedral_of_st_thomas_the_doubter' }), null, 'play a cathedral card');
+  eq(E.apply(s2, m2, { type: 'resolve', junction: c2 }), null, 'in a city with no church yet');
+  eq(s2.settlements[c2].church, 2, 'a cathedral stands there');
+  eq(p2.rf, rf + 2 + 1, '+2 Royal Favor, and Faith gives one more');
+  // a new city beside water, and the Sanitarium hears of it
+  const s3 = fresh(17);
+  const m3 = turn(s3);
+  const rival = other(s3);
+  s3.players[rival].tableau.push({ id: 'sanitarium_of_st_sarah_the_kind', counters: 0, used: false });
+  s3.players[m3].hand = ['new_nineveh'];
+  const before = E.count(s3, m3, 'cities');
+  eq(E.apply(s3, m3, { type: 'playCard', card: 'new_nineveh' }), null, 'play New Nineveh');
+  const sites = E.pendingChoices(s3).junctions;
+  const map = E.mapOf(s3);
+  ok(sites.length > 0 && sites.every((j) => map.junctions[j].hexes.some((h) => map.hexes[h].terrain === 'water') && !E.townSiteError(s3, j)), 'only free sites beside water');
+  const site = sites[0];
+  const bonus = E.bonusOptions(s3, site)[0];
+  eq(E.apply(s3, m3, { type: 'resolve', junction: site, bonus }), null, 'found the city');
+  eq(E.count(s3, m3, 'cities'), before + 1, 'a new city');
+  eq(s3.settlements[site].bonus, bonus, 'with its +2 production');
+  eq(E.findCard(s3, 'sanitarium_of_st_sarah_the_kind').t.counters, 2, 'a rival Sanitarium gains 2 Acolytes from any new city');
+  eq(E.score(s3, m3).cards, 1, 'New Nineveh is worth 1 Favor Point');
+}
+
+// ---- counters: collecting, trading in, Favor Points
+{
+  const s = fresh();
+  const me = turn(s);
+  const you = other(s);
+  const p = s.players[me];
+  p.tableau.push({ id: 'the_order_of_the_sisters_of_verity', counters: 0, used: false });
+  s.players[you].hand = ['circle_of_sages'];
+  E.apply(s, me, { type: 'endTurn' }) === null || E.apply(s, me, { type: 'pass' });
+  E.apply(s, me, { type: 'pass' });
+  while (turn(s) !== you) E.apply(s, turn(s), { type: 'pass' });
+  eq(E.apply(s, you, { type: 'playCard', card: 'circle_of_sages' }), null, 'a rival plays a Scholar card');
+  eq(E.findCard(s, 'the_order_of_the_sisters_of_verity').t.counters, 1, 'the Sisters gain an Acolyte');
+  eq(E.cardFp(s, me, p.tableau.find((t) => t.id === 'the_order_of_the_sisters_of_verity')), 1, '1 Favor Point per Acolyte');
+}
+{
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  p.tableau.push({ id: 'sanitarium_of_st_sarah_the_kind', counters: 3, used: false }, { id: 'st_rachel_s_magnificent_market', counters: 0, used: false });
+  ok(/At most 3/.test(E.check(s, me, { type: 'cardAction', card: 'sanitarium_of_st_sarah_the_kind', n: 4 })), 'cannot trade in more Acolytes than the card holds');
+  eq(E.apply(s, me, { type: 'cardAction', card: 'sanitarium_of_st_sarah_the_kind', n: 2 }), null, 'trade in 2 Acolytes');
+  eq(p.res.gold, 106, '3 Gold each');
+  eq(E.findCard(s, 'sanitarium_of_st_sarah_the_kind').t.counters, 1, 'one left');
+  ok(/once|Already/.test(E.check(s, me, { type: 'cardAction', card: 'sanitarium_of_st_sarah_the_kind', n: 1 })), 'once a year');
+  eq(E.apply(s, me, { type: 'cardAction', card: 'st_rachel_s_magnificent_market', opt: 0, n: 5 }), null, 'buy 5 Workers at the market');
+  eq(p.res.gold, 101, '1 Gold each');
+  eq(E.findCard(s, 'st_rachel_s_magnificent_market').t.counters, 5, 'five Workers');
+  const m = E.findCard(s, 'st_rachel_s_magnificent_market').t;
+  m.used = false;
+  again(s, me);
+  ok(/resource/.test(E.check(s, me, { type: 'cardAction', card: 'st_rachel_s_magnificent_market', opt: 1, n: 2 })), 'the trade-in needs a resource chosen');
+  const ore = p.res.ore;
+  eq(E.apply(s, me, { type: 'cardAction', card: 'st_rachel_s_magnificent_market', opt: 1, n: 3, res: 'ore' }), null, 'trade 3 Workers for Ore');
+  eq(p.res.ore, ore + 3, 'one Ore per Worker');
+  eq(m.counters, 2, 'Workers spent');
+}
+{
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  p.hand = ['lady_myra_s_herds'];
+  eq(E.apply(s, me, { type: 'playCard', card: 'lady_myra_s_herds' }), null, 'play Lady Myra’s Herds');
+  const t = E.findCard(s, 'lady_myra_s_herds').t;
+  eq(t.counters, 3, 'it starts with 3 Workers');
+  const g = p.res.gold;
+  eq(E.apply(s, me, { type: 'cardAction', card: 'lady_myra_s_herds', opt: 0 }), null, 'take the herd’s income');
+  eq(p.res.gold, g + 6, '2 Gold per Worker');
+  eq(t.counters, 2, 'and one Worker leaves');
+  p.tableau.push({ id: 'lady_hannah_s_loom', counters: 0, used: false });
+  p.res.rm = 5;
+  const lux = p.res.lux;
+  again(s, me);
+  ok(/At most 3/.test(E.check(s, me, { type: 'cardAction', card: 'lady_hannah_s_loom', n: 4 })), 'the Loom takes at most 3');
+  eq(E.apply(s, me, { type: 'cardAction', card: 'lady_hannah_s_loom', n: 3 }), null, 'weave');
+  eq(p.res.lux, lux + 6, 'twice the Raw Materials in Luxuries');
+}
+
+// ---- moving counters between dukes' cards
+{
+  const s = fresh();
+  const me = turn(s);
+  const you = other(s);
+  s.players[me].tableau.push({ id: 'college_of_diplomats', counters: 0, used: false }, { id: 'the_entourage_of_earls', counters: 0, used: false });
+  s.players[you].tableau.push({ id: 'the_conclave_of_counts', counters: 2, used: false });
+  const a = { type: 'cardAction', card: 'college_of_diplomats', opt: 0, from: 'the_conclave_of_counts', to: 'the_entourage_of_earls' };
+  ok(E.tokenTargets(s, me, { op: 'move', type: 'noble' }).from.some((x) => x.card === 'the_conclave_of_counts'), 'a rival’s Nobles can be taken');
+  s.players[you].peaceUntil = s.year;
+  ok(/protection/.test(E.check(s, me, a)), 'but not from a duke under the King’s Peace');
+  s.players[you].peaceUntil = 0;
+  eq(E.apply(s, me, a), null, 'move a Noble to my own card');
+  eq(E.findCard(s, 'the_conclave_of_counts').t.counters, 1, 'it leaves the rival’s card');
+  eq(E.findCard(s, 'the_entourage_of_earls').t.counters, 1, 'and arrives on mine');
+  eq(s.players[me].res.lux, 19, 'for 1 Luxury');
+  const s2 = fresh(23);
+  const m2 = turn(s2);
+  const y2 = other(s2);
+  s2.players[m2].tableau.push({ id: 'guildmasters', counters: 0, used: false });
+  s2.players[y2].tableau.push({ id: 'lumber_camp', counters: 1, used: false });
+  eq(E.apply(s2, m2, { type: 'cardAction', card: 'guildmasters', opt: 1, to: 'lumber_camp' }), null, 'a Worker may be added to a rival’s card');
+  eq(E.findCard(s2, 'lumber_camp').t.counters, 2, 'it arrives there');
+  s2.players[m2].tableau.push({ id: 'the_conclave_of_counts', counters: 0, used: false });
+  E.findCard(s2, 'guildmasters').t.used = false;
+  again(s2, m2);
+  ok(/collects Workers/.test(E.check(s2, m2, { type: 'cardAction', card: 'guildmasters', opt: 1, to: 'the_conclave_of_counts' })), 'only onto cards that collect that kind');
+}
+{
+  // The Evangelist converts other counters into Acolytes, onto cards that already have some
+  const s = fresh();
+  const me = turn(s);
+  const you = other(s);
+  s.players[me].tableau.push({ id: 'the_evangelist', counters: 0, used: false }, { id: 'monastery_of_st_ezekiel', counters: 0, used: false });
+  s.players[you].tableau.push({ id: 'st_rachel_s_magnificent_market', counters: 4, used: false });
+  const a = { type: 'cardAction', card: 'the_evangelist', opt: 0, from: 'st_rachel_s_magnificent_market', to: 'monastery_of_st_ezekiel' };
+  ok(/already has/.test(E.check(s, me, a)), 'the Acolyte card must already have Acolytes');
+  E.findCard(s, 'monastery_of_st_ezekiel').t.counters = 1;
+  const g = s.players[me].res.gold;
+  eq(E.apply(s, me, a), null, 'convert a Worker');
+  eq(E.findCard(s, 'st_rachel_s_magnificent_market').t.counters, 3, 'the Worker leaves the market');
+  eq(E.findCard(s, 'monastery_of_st_ezekiel').t.counters, 2, 'and becomes an Acolyte');
+  eq(s.players[me].res.gold, g + 2, 'the Evangelist also brings 2 Gold');
+}
+
+// ---- Workers that pay out every year, and caps
+{
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  p.tableau.push({ id: 'lumber_camp', counters: 3, used: false }, { id: 'cooper_s_workshop', counters: 2, used: false });
+  ok(/cannot hold/.test(E.check(s, me, { type: 'cardAction', card: 'lumber_camp' })), 'a Lumber Camp holds at most 3 Workers');
+  p.res.rm = 0;
+  const car = put(s, me, 'caravan', s.capital);
+  const g = p.res.gold;
+  eq(E.apply(s, me, { type: 'tradeCapital', unit: car.id, marker: 'stone', pay: 'gold' }), null, 'trade at the capital');
+  eq(p.res.gold, g - 9 + 4, 'the Cooper’s Workshop pays 2 Gold per Worker on each trade');
+  E.apply(s, me, { type: 'endTurn' });
+  while (s.phase === 'action') E.apply(s, turn(s), { type: 'pass' });
+  eq(p.res.rm, 3 + p.prod.rm, 'the Lumber Camp’s 3 Raw Materials arrive after the year’s Luxuries are made');
+}
+{
+  const s = fresh();
+  const me = turn(s);
+  s.players[me].hand = ['royal_monument'];
+  ok(/Culture 4/.test(E.check(s, me, { type: 'playCard', card: 'royal_monument' })), 'Royal Monument needs Culture 4');
+  s.tracks.culture = 4;
+  eq(E.apply(s, me, { type: 'playCard', card: 'royal_monument' }), null, 'play it');
+  eq(E.findCard(s, 'royal_monument').t.counters, 2, 'with 2 Artisans');
+  eq(E.score(s, me).cards, 2, '1 Favor Point per Artisan');
+  eq(s.tracks.culture, 5, 'and Culture rises');
 }
 
 // ---- hidden information
