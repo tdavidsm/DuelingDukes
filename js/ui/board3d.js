@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from '../../vendor/OrbitControls.js';
-import { svgString } from './dom.js';
+import { svgStandalone } from './dom.js';
 
 const TOP = 0.1; // height of the land surface
 const TERRAIN_COLOR = {
@@ -219,7 +219,7 @@ function bountySprite(b) {
   draw(null);
   const img = new Image();
   img.onload = () => draw(img);
-  img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString(b.res).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" '));
+  img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgStandalone(b.res, 64));
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
   sp.scale.setScalar(0.52);
   sp.renderOrder = 5;

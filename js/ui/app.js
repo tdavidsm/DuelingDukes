@@ -6,6 +6,7 @@ import { h, clear, toast, modal, icon } from './dom.js';
 import { rulesHtml } from './rules.js';
 import { PLAYER_COLORS } from '../engine/data.js';
 import { STATE_VERSION } from '../engine/engine.js';
+import { loadArt } from './cardview.js';
 
 const root = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -195,6 +196,9 @@ function renderLobby() {
   void icon;
   clear(root).append(el);
 }
+
+// Learn which cards have art before drawing any.
+await loadArt();
 
 // ?auto=local&bots=2 starts a game against bots straight away (used by the tests).
 if (params.get('auto') === 'local') {

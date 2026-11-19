@@ -7,7 +7,7 @@ import { TERRAIN } from '../engine/map.js';
 import { Board } from './board3d.js';
 import { h, icon, rich, amount, costRow, toast, clear, modal } from './dom.js';
 import { cardEl, houseEl } from './cardview.js';
-import { actionText } from '../engine/describe.js';
+import { actionText, describeCard, plain } from '../engine/describe.js';
 import { rulesHtml } from './rules.js';
 
 const COLOR = Object.fromEntries(D.PLAYER_COLORS.map((c) => [c.id, c.hex]));
@@ -109,6 +109,8 @@ export class GameScreen {
     this.renderUnitBox();
     this.renderPhaseModal();
     this.renderCurtain();
+    this.el.style.setProperty('--hud-h', this.hudEl.offsetHeight + 'px');
+    this.el.style.setProperty('--players-h', this.playersEl.offsetHeight + 'px');
     this.board.setInset(this.hudEl.offsetHeight, this.bottomEl.offsetHeight);
     this.board.setHighlights(this.highlights());
     if (view.phase === 'ended' && !this.endShown) { this.endShown = true; this.showScores(); }
@@ -766,6 +768,15 @@ export class GameScreen {
       const action = { type: 'playCard', card: cardId, pay: { ...pay } };
       const err = v.phase !== 'action' ? 'Cards are played during the action phase' : this.why(action);
       const right = h('div', { class: 'card-side' });
+      // The card's icons, spelled out.
+      const dsc = describeCard(card);
+      right.append(h('h4', {}, 'What it does'), h('ul', { class: 'rules-list' },
+        dsc.req ? h('li', {}, h('b', {}, 'Requires: '), dsc.req, '.') : null,
+        dsc.lines.map((l) => h('li', {}, rich(l + '.'))),
+        dsc.actions.length ? h('li', {}, h('b', {}, dsc.actions.length > 1 ? 'Once a year, choose one: ' : 'Once a year: '),
+          dsc.actions.map((t, i) => [i ? h('b', {}, ' Or: ') : null, rich(t + '.')])) : null,
+        dsc.fp ? h('li', {}, h('b', {}, 'Favor Points: '), dsc.fp, '.') : null,
+        card.type === 'event' ? h('li', { class: 'muted' }, 'An event: it happens once, and its tags do not stay in play.') : null));
       right.append(h('h4', {}, 'Payment'), h('p', {}, 'Cost: ', amount(cost, 'gold'), cost !== card.cost ? h('span', { class: 'muted' }, ` (printed ${card.cost})`) : null));
       for (const a of alts) {
         const n = pay[a.res] || 0;

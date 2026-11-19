@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Design Preview</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { overflow: auto; height: auto; }
+  body { padding: 20px 24px 40px; background: radial-gradient(ellipse at 50% 0%, #4a3523 0%, #21160e 60%, #120d09 100%) fixed; }
+  h1 { color: var(--gold-2); font-size: 26px; margin: 0 0 4px; }
+  h2 { color: var(--gold-2); font-size: 18px; margin: 26px 0 10px; }
+  p.note { opacity: .8; margin: 0 0 10px; max-width: 900px; }
+  .row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+  .icons figure { margin: 0; text-align: center; background: rgba(0,0,0,.25); border: 1px solid var(--wood-3); border-radius: 8px; padding: 8px 4px; }
+  .icons .ico { width: 44px; height: 44px; color: #b3261e; }
+  .icons figcaption { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .sizes { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .sizes .ico { color: #2f6fd0; }
+</style>
+</head>
+<body>
+<h1>Card design preview</h1>
+<p class="note">The new card layout and icons, drawn by the game's own card code from the real card data. Cards without art yet show a placeholder.</p>
+<div id="root"></div>
+<script type="module">
+import { h, icon } from '../js/ui/dom.js';
+import { cardEl, houseEl, loadArt } from '../js/ui/cardview.js';
+import { ICONS } from '../js/ui/icons.js';
+
+const params = new URLSearchParams(location.search);
+const root = document.getElementById('root');
+await loadArt('../');
+const big = (params.get('cards') || 'scorched_fields,banking_house,market_hall,reliquary').split(',');
+const extra = (params.get('extra') || 'st_rachel_s_magnificent_market,the_evangelist,new_nineveh').split(',');
+const only = params.get('only');
+if (!only || only === 'cards') {
+  root.append(h('h2', {}, 'Cards with art'), h('div', { class: 'row' }, big.map((id) => cardEl(id))));
+  root.append(h('h2', {}, 'Cards without art yet, including the busiest layouts'), h('div', { class: 'row' }, extra.map((id) => cardEl(id, { counters: id === 'st_rachel_s_magnificent_market' ? 3 : undefined })), houseEl('ferrum')));
+  root.append(h('h2', {}, 'In your hand'), h('div', { class: 'row' }, [...big, ...extra].map((id) => cardEl(id, { small: true }))));
+}
+if (!only || only === 'icons') {
+  root.append(h('h2', {}, 'Icons'), h('div', { class: 'icons' }, Object.keys(ICONS).map((n) => h('figure', {}, icon(n), h('figcaption', {}, n)))));
+  root.append(h('h2', {}, 'Icons at the sizes the game uses them'), ...[14, 18, 24].map((px) => h('div', { class: 'sizes', style: { fontSize: px + 'px' } },
+    `${px}px`, ['gold', 'stone', 'ore', 'food', 'rm', 'lux', 'card', 'rf', 'fp', 'building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court', 'culture', 'tok-noble', 'tok-acolyte', 'tok-scholar', 'tok-worker', 'tok-artisan', 'settlers', 'soldiers', 'knights', 'caravan'].map((n) => icon(n)))));
+}
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

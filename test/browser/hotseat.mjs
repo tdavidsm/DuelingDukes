@@ -33,6 +33,7 @@ for (let guard = 0; guard < 600; guard++) {
   else if (st.phase === 'setup') { await p.click('.phase-modal .card.house'); await p.click('.phase-modal .card-grid:not(.houses) .card:nth-child(2)'); await p.click('#btn-confirm'); }
   else if (st.phase === 'research') { await p.click('#btn-confirm'); }
   else if (st.phase === 'placeCapitals') {
+    await p.waitForFunction(() => window.__dd.game.highlights().junctions.length > 0);
     await p.evaluate(() => { const g = window.__dd.game; const hl = g.highlights().junctions; g.pick({ kind: 'junction', id: hl[Math.floor(hl.length / 2)].id }); });
     await p.waitForSelector('[data-bonus]');
     await p.click('[data-bonus]');

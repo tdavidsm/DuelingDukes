@@ -232,6 +232,11 @@ function render() {
       <pre class="prompt">${esc(AGENT)}</pre>
     </details>
     <details>
+      <summary>Putting the art into the game</summary>
+      <p>Click <b>Download all as zip</b> and unzip it. The <b>art</b> folder holds game-sized copies of every image and the list the game reads. On GitHub, open the repository, choose <b>Add file → Upload files</b>, drag in the whole <b>art</b> folder, and commit. The cards in the game then show your art. Keep the <b>originals</b> folder yourself: it has the full-size images.</p>
+      <p>The zip always holds every image saved in this browser, so upload the whole folder each time rather than just the new ones.</p>
+    </details>
+    <details>
       <summary>If you downloaded images instead of pasting them</summary>
       <p>Use <b>Import downloads…</b> at the top and select all the downloaded images at once. They are matched, oldest first, to the cards whose prompts you copied, in the order you copied them. Check the result with <b>Review all</b>. Pasting is more reliable, because each image goes straight to the card on screen.</p>
     </details>`;
@@ -336,9 +341,50 @@ async function makeZip(entries) {
   end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
   return new Blob([...chunks, ...central, end], { type: 'application/zip' });
 }
+// A copy small enough for the game to load quickly: 640 pixels wide, WebP where the browser can make it.
+async function webCopy(blob) {
+  const bmp = await createImageBitmap(blob);
+  const scale = Math.min(1, 640 / bmp.width);
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * scale);
+  c.height = Math.round(bmp.height * scale);
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close && bmp.close();
+  for (const type of ['image/webp', 'image/jpeg']) {
+    const out = await new Promise((r) => c.toBlob(r, type, 0.84));
+    if (out && out.type === type) return { blob: out, ext: type === 'image/webp' ? 'webp' : 'jpg' };
+  }
+  return { blob, ext: extOf(blob) };
+}
+
 $('#zip').onclick = async () => {
-  const entries = items.filter((x) => images.has(x.id)).map((x) => ({ name: `art/cards/${x.id}.${extOf(images.get(x.id))}`, blob: images.get(x.id) }));
+  const btn = $('#zip');
+  btn.disabled = true;
+  const done = items.filter((x) => images.has(x.id));
+  const entries = [];
+  const index = {};
+  for (let i = 0; i < done.length; i++) {
+    const x = done[i];
+    btn.textContent = `Preparing ${i + 1} of ${done.length}…`;
+    const orig = images.get(x.id);
+    const web = await webCopy(orig);
+    entries.push({ name: `art/cards/${x.id}.${web.ext}`, blob: web.blob });
+    entries.push({ name: `originals/${x.id}.${extOf(orig)}`, blob: orig });
+    index[x.id] = `${x.id}.${web.ext}`;
+  }
+  // The game reads this list to know which cards have art.
+  entries.push({ name: 'art/cards/index.json', blob: new Blob([JSON.stringify(index, null, 1)], { type: 'application/json' }) });
+  entries.push({ name: 'README.txt', blob: new Blob([
+    'Dueling Dukes card art\n\n'
+    + 'art/cards  holds game-sized copies of your images and index.json, the list the game reads.\n'
+    + '           Upload this folder to the repository: on GitHub choose Add file > Upload files and\n'
+    + '           drag in the whole "art" folder, then commit. It replaces the art already there.\n'
+    + 'originals  holds your full-size images. Keep these yourself; they are not needed by the game.\n',
+  ], { type: 'text/plain' }) });
   const zip = await makeZip(entries);
+  render();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(zip);
   a.download = 'dueling-dukes-card-art.zip';

@@ -146,6 +146,7 @@ constants in `js/engine/data.js` or `js/engine/cards.js` and easy to change:
 
 ```
 index.html            the page
+art/cards/            card art (game-sized) and index.json, the list of cards that have art
 css/style.css         all styling
 js/engine/            the rules, with no browser dependencies
   data.js             costs, tracks, Trade Track tables, houses, titles, honors
@@ -155,8 +156,9 @@ js/engine/            the rules, with no browser dependencies
   describe.js         generates card text from card data
   bot.js              the computer dukes
 js/net.js             host and client sessions (peer-to-peer play, saving, bots)
-js/ui/                title screen, lobby, 3D board (three.js), game screen
-vendor/               three.js and PeerJS (both MIT-licensed), vendored so the game has no build step
+js/ui/                title screen, lobby, 3D board (three.js), game screen, card faces, icons
+vendor/               three.js and PeerJS (MIT), and the Cinzel and EB Garamond fonts (SIL Open Font
+                      License), vendored so the game has no build step
 test/                 rule checks and bot-against-bot simulations
 ```
 
@@ -187,6 +189,12 @@ node tools/art/generate-art.mjs                      # draw everything not yet d
   `--only tithes --redo`.
 - The script picks the cheapest available image model automatically; `--model` overrides it.
   `--concurrency` and `--size 2K` are also available.
+
+**Putting art on the cards.** The game shows a card's art when `art/cards/index.json` lists it and the
+image is in `art/cards/`. The art helper's **Download all as zip** produces exactly that folder (images
+resized to 640 pixels wide, as WebP) plus your full-size originals: upload the zip's `art` folder to the
+repository and the cards pick it up. `tools/card-preview.html` shows the card design with whatever art
+is there.
 
 **Card art from the Gemini app (no API key).** If you make images in the Gemini app with a
 subscription instead of the API, open `tools/art/helper.html` on the published site
