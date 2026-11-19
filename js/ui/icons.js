@@ -272,11 +272,53 @@ const UNITS = {
 };
 
 // --------------------------------------------------- board things on cards
+// A stretch of brick road laid corner to corner, like a road piece on the board:
+// courses of brick in a running bond between stone kerbs and grassy verges.
+function brickRoad() {
+  const f = (n) => Math.round(n * 100) / 100;
+  const x0 = 5;
+  const x1 = 43; // short enough that the whole stretch fits once turned
+  const len = x1 - x0;
+  const yT = 15.5; // verge, kerb, three courses of brick, kerb, verge
+  const kerb = 2.6;
+  const course = 4.3;
+  const brickL = 7.2;
+  const shades = ['#c9673f', '#b4552f', '#d27a4c', '#a94c2a', '#bf5f36'];
+  let out = '';
+  // grass verges
+  out += `<rect x="${x0}" y="${yT - 3.2}" width="${len}" height="3.6" rx="1.4" fill="${g('green')}" stroke="${OUT}" stroke-width="1.1"/>`;
+  out += `<rect x="${x0}" y="${yT + 2 * kerb + 3 * course - 0.4}" width="${len}" height="3.6" rx="1.4" fill="${g('green')}" stroke="${OUT}" stroke-width="1.1"/>`;
+  // mortar bed
+  const bedY = yT;
+  const bedH = 2 * kerb + 3 * course;
+  out += `<rect x="${x0}" y="${bedY}" width="${len}" height="${bedH}" fill="#4a3220"/>`;
+  // kerbstones
+  for (const ky of [bedY, bedY + kerb + 3 * course]) {
+    for (let x = x0, k = 0; x < x1 - 0.1; x += 5.2, k++) {
+      const w = Math.min(5.2, x1 - x);
+      out += `<rect x="${f(x + 0.3)}" y="${f(ky + 0.3)}" width="${f(w - 0.6)}" height="${f(kerb - 0.6)}" rx=".5" fill="${k % 2 ? '#cfc7b4' : '#bdb4a0'}"/>`;
+    }
+  }
+  // bricks, three courses in a running bond
+  for (let c = 0; c < 3; c++) {
+    const y = bedY + kerb + c * course;
+    const start = x0 - (c % 2 ? brickL / 2 : 0);
+    for (let x = start, k = 0; x < x1; x += brickL, k++) {
+      const a = Math.max(x, x0);
+      const b = Math.min(x + brickL, x1);
+      if (b - a < 0.8) continue;
+      out += `<rect x="${f(a + 0.35)}" y="${f(y + 0.35)}" width="${f(b - a - 0.7)}" height="${f(course - 0.7)}" rx=".6" fill="${shades[(k * 2 + c) % shades.length]}"/>`;
+      out += `<path d="M${f(a + 0.8)} ${f(y + 1)}h${f(Math.max(0, b - a - 1.6))}" stroke="#f0a77a" stroke-width=".55" stroke-linecap="round" opacity=".75"/>`;
+    }
+  }
+  // light from above, then a firm outline round the whole stretch
+  out += `<rect x="${x0}" y="${bedY}" width="${len}" height="${bedH}" fill="url(#dd-shade)" opacity=".7"/>`;
+  out += `<rect x="${x0}" y="${bedY}" width="${len}" height="${bedH}" fill="none" stroke="${OUT}" stroke-width="1.5"/>`;
+  return `<g transform="rotate(-38 24 24) translate(0 .6)">${out}</g>`;
+}
+
 const PLACES = {
-  road: `
-    <path d="M17 45 21 3h6l4 42z" fill="${g('stone')}" stroke="${OUT}" stroke-width="1.8" stroke-linejoin="round"/>
-    <path d="M24 6v6M24 18v6M24 30v6M24 41v3" stroke="#fbf1d6" stroke-width="2" stroke-linecap="round"/>
-    <path d="M6 45c3-9 6-18 9-42M42 45c-3-9-6-18-9-42" stroke="${g('green')}" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+  road: brickRoad(),
   church: `
     <path d="M8 44V25l10-9 10 9v19z" fill="#f6f1e4" stroke="${OUT}" stroke-width="1.8" stroke-linejoin="round"/>
     <path d="M6 26 18 14.5 30 26" fill="none" stroke="${g('blue')}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
