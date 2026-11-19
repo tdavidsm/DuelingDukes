@@ -266,7 +266,7 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .cf-cost b { position: relative; font-family: "Cinzel", var(--display); font-weight: 700; font-size: 1.35em; color: #3b2606; margin-top: .3em;
   text-shadow: 0 .05em 0 #fff3b0, 0 0 .25em #fff3b0, 0 0 .25em #fff3b0; }
 .cf-cost.cheaper b { color: #1f6b2c; }
-.cf-tags { position: absolute; right: .25em; top: 2.25em; display: flex; gap: .1em; }
+.cf-tags { position: absolute; right: .55em; top: 2.25em; display: flex; gap: .1em; }
 .cf-tag { width: 2.05em !important; height: 2.05em !important; filter: drop-shadow(0 .1em .15em rgba(0,0,0,.6)); }
 .cf-req { position: absolute; left: .55em; top: 2.95em; display: flex; gap: .3em; align-items: center; padding: .08em .45em .08em .3em; border-radius: 0 0 .5em .5em;
   font-family: "Cinzel", var(--display); font-weight: 700; font-size: .82em; color: #fbf0d0; background: linear-gradient(#7a1f1a, #4e0d0a); border: .1em solid #d9b25a; border-top: 0; text-shadow: 0 .06em 0 #000; }

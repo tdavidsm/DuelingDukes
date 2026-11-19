@@ -184,14 +184,21 @@ const FAVOR = {
     <path d="M24 13c1.6 2 2.4 4 2.2 6.4 1.6-1.6 3.6-1.8 5-.6 1.2 1.2.6 3.4-1.4 3.8-1.6.4-3-.2-3.8-1.2-.2 1.4-.6 2.6-1.2 3.6h3.4v1.8h-3.4c.4 1.6 1.2 2.8 2.4 3.6h-6.4c1.2-.8 2-2 2.4-3.6h-3.4v-1.8h3.4c-.6-1-1-2.2-1.2-3.6-.8 1-2.2 1.6-3.8 1.2-2-.4-2.6-2.6-1.4-3.8 1.4-1.2 3.4-1 5 .6-.2-2.4.6-4.4 2.2-6.4z" fill="#ffd9a0" stroke="#7a0d0d" stroke-width=".8" stroke-linejoin="round"/>
     <path d="M13 12.5c2-2.6 4.6-4.2 7.4-4.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".45" fill="none"/>
     <path d="M17 39.5l-3.5 6.5 5-1.2 2.5 2.8 1.6-6.4M31 39.5l3.5 6.5-5-1.2-2.5 2.8-1.6-6.4" fill="${g('wax')}" stroke="${OUT}" stroke-width="1.3" stroke-linejoin="round"/>`,
-  event: `
-    <path d="M6 20.5v7l4 .6 22 8.4V12.5L10 20z" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.8" stroke-linejoin="round"/>
-    <path d="M32 12.5c3 3 4.6 7 4.6 11.5S35 32.5 32 35.5" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.8"/>
-    <ellipse cx="33" cy="24" rx="3.4" ry="11.5" fill="#6b4a08" stroke="${OUT}" stroke-width="1.4"/>
-    <path d="M11 28.5l5.5 2 0 9.5-5.5-2.4z" fill="${g('red')}" stroke="${OUT}" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M12.5 31.5l2.4.9M12.5 34.5l2.4.9" stroke="#f6d67a" stroke-width="1"/>
-    <path d="M39.5 15l4.5-3M40.5 24h5M39.5 33l4.5 3" stroke="${OUT}" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M39.5 15l4.5-3M40.5 24h5M39.5 33l4.5 3" stroke="#f6d67a" stroke-width="1" stroke-linecap="round"/>`,
+  // A herald's fanfare trumpet: a long golden tube and flared bell, with a
+  // swallow-tailed banner hanging beneath it. Drawn level, then tilted up.
+  event: `<g transform="rotate(-22 24 24) translate(22.4 25.2) scale(.88) translate(-24.4 -24.6)">
+    <path d="M10.5 22.4H29.5v14.4l-4.75-3.5-4.75 5.2-4.75-5.2-4.75 3.5z" fill="${gv('red')}" stroke="${OUT}" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M12.3 24.4H27.7v9l-3-2.2-4.7 5-4.7-5-3 2.2z" fill="none" stroke="#f6d67a" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M20 25.3c1 1.2 1.4 2.4 1.3 3.8 1-1 2.2-1.1 3-.3.6.7.3 2-.9 2.2-1 .2-1.7-.1-2.3-.7l.6 2.1h-3.4l.6-2.1c-.6.6-1.3.9-2.3.7-1.2-.2-1.5-1.5-.9-2.2.8-.8 2-.7 3 .3-.1-1.4.3-2.6 1.3-3.8z" fill="${g('gold')}" stroke="${OUT}" stroke-width=".7" stroke-linejoin="round"/>
+    <path d="M4 16.6c2.2.6 3.2 2 3.2 4.4s-1 3.8-3.2 4.4c-1.2-.8-1.8-2.4-1.8-4.4s.6-3.6 1.8-4.4z" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M6.8 18.9H30c5.6 0 10.2-3.6 13.6-9.2v22.6C40.2 26.7 35.6 23.1 30 23.1H6.8z" fill="${gv('gold')}" stroke="${OUT}" stroke-width="1.8" stroke-linejoin="round"/>
+    <ellipse cx="43.6" cy="21" rx="2.6" ry="11.2" fill="#8a6210" stroke="${OUT}" stroke-width="1.6"/>
+    <ellipse cx="44" cy="21" rx="1.2" ry="8.4" fill="#3d2a05"/>
+    <path d="M7.6 20.1H30.4c5-.1 9-2.8 12-7.4" fill="none" stroke="#fff8d0" stroke-width="1.2" stroke-linecap="round" opacity=".9"/>
+    <ellipse cx="11" cy="21" rx="1.9" ry="3.3" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.3"/>
+    <ellipse cx="20" cy="21" rx="2.8" ry="3.9" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.4"/>
+    <ellipse cx="29" cy="21" rx="1.9" ry="3.3" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.3"/>
+  </g>`,
 };
 
 // ------------------------------------------------------------ counters
