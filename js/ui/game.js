@@ -449,7 +449,7 @@ export class GameScreen {
     const oldHand = this.bottomEl.querySelector('.hand');
     const scroll = oldHand ? oldHand.scrollLeft : 0;
     const myTurn = this.myTurn();
-    const resCell = (r) => h('div', { class: 'res res-' + r, title: D.RES_NAME[r] + (r === 'gold' ? ` — income each year: Royal Favor ${me.rf} + production ${me.prod.gold}` : r === 'lux' ? ' — made from unspent Raw Materials at year’s end' : '') },
+    const resCell = (r) => h('div', { class: 'res res-' + r, title: D.RES_NAME[r] + (r === 'gold' ? ` — income each year: Royal Favor ${me.rf} + production ${me.prod.gold}` : r === 'lux' || r === 'rm' ? ` — at year’s end, up to ${E.convertLimit(this.view, this.view.you)} unspent Raw Materials become Luxuries (1 per town, 2 per city${E.mods(this.view, this.view.you).convert.cap ? ', plus card bonuses' : ''})` : '') },
       icon(r), h('b', {}, me.res[r]),
       r === 'lux' && !me.prod.lux ? null : h('span', { class: 'prod' }, (r === 'gold' ? me.prod.gold + me.rf : me.prod[r]) >= 0 ? '+' : '', r === 'gold' ? me.prod.gold + me.rf : me.prod[r]),
       h('span', { class: 'res-name' }, D.RES_SHORT[r]));
@@ -685,10 +685,23 @@ export class GameScreen {
   }
 
   confirmPass() {
+    const v = this.view;
+    // Charter actions still unused this year that could be used now.
+    const unused = E.unusedCardActions(v, v.you);
     const body = h('div', {},
+      unused.length ? h('div', { class: 'pass-warn', id: 'pass-warn' },
+        h('p', {}, h('b', {}, unused.length === 1 ? 'You have a Charter action you have not used this year:' : `You have ${unused.length} Charter actions you have not used this year:`)),
+        h('ul', {}, unused.map((id) => {
+          const card = CARD_BY_ID[id];
+          const acts = E.cardActs(card);
+          return h('li', {}, h('b', {}, card.name), h('span', { class: 'muted' }, ' — ',
+            acts.length > 1 ? `choose one of ${acts.length} actions` : rich(actionText(acts[0], card) + '.')));
+        })),
+        h('p', { class: 'muted' }, 'Once you pass, they are lost until next year.')) : null,
       h('p', {}, 'You will take no more actions this year. The other dukes carry on until they have all passed.'),
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn primary', id: 'btn-pass-yes', onclick: () => { m.close(); this.act({ type: 'pass' }); } }, 'Pass for the year'),
+        h('button', { class: 'btn primary', id: 'btn-pass-yes', onclick: () => { m.close(); this.act({ type: 'pass' }); } }, unused.length ? 'Pass anyway' : 'Pass for the year'),
+        unused.length ? h('button', { class: 'btn', id: 'btn-pass-cards', onclick: () => { m.close(); this.showPlayer(v.you); } }, 'Show my Charters') : null,
         h('button', { class: 'btn', onclick: () => m.close() }, 'Not yet')));
     const m = modal({ title: 'Pass for the year?', body });
   }
@@ -935,28 +948,73 @@ export class GameScreen {
         plural(E.count(v, pid, 'towns'), 'town'), plural(E.count(v, pid, 'cities'), 'city', 'cities'), plural(E.count(v, pid, 'roads'), 'road'),
         plural(E.count(v, pid, 'churches'), 'church', 'churches'), plural(p.stats.trades, 'trade'), `income ${p.rf + p.prod.gold} Gold a year`,
       ].join(' · '))));
-    const grid = h('div', { class: 'card-grid' });
-    if (p.house) grid.append(houseEl(p.house));
-    for (const t of p.tableau) {
-      const card = CARD_BY_ID[t.id];
-      let footer = null;
-      if (card.act) {
-        const acts = E.cardActs(card);
-        const simple = acts.length === 1 && !acts[0].each && !acts[0].token;
-        const a = { type: 'cardAction', card: t.id };
-        const reason = !mine ? null : t.used ? 'Already used this year' : !this.myTurn() ? 'Not your turn' : simple ? this.why(a) : null;
-        footer = h('div', { class: 'card-use' }, mine
-          ? h('button', {
-            class: 'btn primary', disabled: !!reason, title: reason || '', dataset: { use: t.id },
-            onclick: () => { m.close(); if (simple) this.act(a); else this.showCardAction(t.id); },
-          }, t.used ? 'Used this year' : simple ? 'Use action' : 'Use action…')
-          : h('span', { class: 'muted' }, t.used ? 'Used this year' : 'Action ready'));
-      }
-      grid.append(cardEl(t.id, { counters: t.counters, footer }));
+    // Commissions stack so only their tops show (cost, title, tags); Charters are
+    // laid out in full, those with yearly actions apart from lasting effects.
+    const commissions = p.tableau.filter((t) => CARD_BY_ID[t.id].type === 'project');
+    const actions = p.tableau.filter((t) => CARD_BY_ID[t.id].type !== 'project' && CARD_BY_ID[t.id].act);
+    const effects = p.tableau.filter((t) => CARD_BY_ID[t.id].type !== 'project' && !CARD_BY_ID[t.id].act);
+    const section = (title, n, extra) => h('div', { class: 'tab-head' }, h('h4', {}, title, h('span', { class: 'muted' }, ` (${n})`)), extra || null);
+
+    if (actions.length) {
+      const unused = mine ? actions.filter((t) => !t.used).length : 0;
+      body.append(section('Charters: yearly actions', actions.length,
+        mine ? h('span', { class: 'muted' }, unused ? `${unused} not used this year` : 'all used this year') : null));
+      const grid = h('div', { class: 'card-grid' });
+      for (const t of actions) grid.append(this.tableauCard(t, mine, m));
+      body.append(grid);
     }
-    body.append(grid);
-    if (!p.tableau.length) body.append(h('p', { class: 'muted' }, 'No projects built yet.'));
+    if (effects.length || p.house) {
+      body.append(section('Charters: lasting effects', effects.length));
+      const grid = h('div', { class: 'card-grid' });
+      if (p.house) grid.append(houseEl(p.house));
+      for (const t of effects) grid.append(this.tableauCard(t, mine, m));
+      body.append(grid);
+    }
+    if (commissions.length) {
+      const stacks = h('div', {});
+      const draw = () => {
+        const stacked = this.stackCommissions !== false;
+        clear(stacks);
+        const wrap = h('div', { class: stacked ? 'card-stacks' : 'card-grid' });
+        // At most 7 to a stack, the stacks evened out.
+        const PER = Math.ceil(commissions.length / Math.ceil(commissions.length / 7));
+        for (let i = 0; i < commissions.length; i += stacked ? PER : commissions.length) {
+          const col = stacked ? h('div', { class: 'card-stack' }) : wrap;
+          for (const t of commissions.slice(i, stacked ? i + PER : undefined)) {
+            const el = this.tableauCard(t, mine, m);
+            el.style.setProperty('--ntags', CARD_BY_ID[t.id].tags.length);
+            col.append(el);
+          }
+          if (stacked) wrap.append(col);
+        }
+        stacks.append(wrap);
+        toggle.textContent = stacked ? 'Show full cards' : 'Stack them';
+      };
+      const toggle = h('button', { class: 'btn quiet', onclick: () => { this.stackCommissions = this.stackCommissions === false; draw(); } });
+      body.append(section('Commissions', commissions.length, toggle), stacks);
+      draw();
+    }
+    if (!p.tableau.length) body.append(h('p', { class: 'muted' }, 'No cards in play yet.'));
     if (p.events.length) body.append(h('p', { class: 'muted' }, 'Events played: ' + p.events.map((c) => CARD_BY_ID[c].name).join(', ')));
+  }
+
+  // One card in a duke's tableau, with its action button when it has one.
+  tableauCard(t, mine, m) {
+    const card = CARD_BY_ID[t.id];
+    let footer = null;
+    if (card.act) {
+      const acts = E.cardActs(card);
+      const simple = acts.length === 1 && !acts[0].each && !acts[0].token;
+      const a = { type: 'cardAction', card: t.id };
+      const reason = !mine ? null : t.used ? 'Already used this year' : !this.myTurn() ? 'Not your turn' : simple ? this.why(a) : null;
+      footer = h('div', { class: 'card-use' }, mine
+        ? h('button', {
+          class: 'btn primary', disabled: !!reason, title: reason || '', dataset: { use: t.id },
+          onclick: () => { m.close(); if (simple) this.act(a); else this.showCardAction(t.id); },
+        }, t.used ? 'Used this year' : simple ? 'Use action' : 'Use action…')
+        : h('span', { class: 'muted' }, t.used ? 'Used this year' : 'Action ready'));
+    }
+    return cardEl(t.id, { counters: t.counters, footer });
   }
 
   showTrade() {
@@ -969,22 +1027,32 @@ export class GameScreen {
       const tc = E.tradeCost(v, v.you);
       const caravan = v.units.find((u) => u.owner === v.you && u.type === 'caravan' && u.at === v.capital && !u.acted);
       if (!payWith || me.res[payWith] < tc[payWith]) payWith = ['rm', 'ore', 'gold'].find((r) => me.res[r] >= tc[r]) || 'rm';
-      clear(body).append(h('p', { class: 'lead' }, 'Trading for a kind of goods pays the value under its marker, then the marker drops back to its floor. Markers nobody trades for climb one step each year.'));
+      clear(body).append(h('p', { class: 'lead' }, 'Trading for a kind of goods pays the value under its marker, then the marker drops back to the lowest free step. Markers nobody trades for climb one step each year. Trading Posts fill the bottom steps of a row, so its marker never falls that low.'));
+      const people = E.peopleCards(v, v.you);
       const table = h('div', { class: 'trade-track' });
       table.append(h('div', { class: 'tt-row tt-head' }, h('span', { class: 'tt-name' }, 'Step'), Array.from({ length: D.TRADE_STEPS }, (_, i) => h('span', { class: 'tt-cell' }, i)), h('span', { class: 'tt-act' })));
       for (const mk of D.TRADE_MARKERS) {
         const m = v.trade[mk];
-        const tradeA = caravan ? { type: 'tradeCapital', unit: caravan.id, marker: mk, pay: payWith } : null;
+        const isPeople = mk === 'people';
+        const tradeA = caravan ? { type: 'tradeCapital', unit: caravan.id, marker: mk, pay: payWith, card: isPeople ? people[0] : undefined } : null;
         const postA = { type: 'std', kind: 'post', marker: mk };
-        const tradeErr = !myTurn ? 'Not your turn' : !caravan ? 'Needs your Caravan at the capital, ready to trade' : this.why(tradeA);
+        const tradeErr = !myTurn ? 'Not your turn' : !caravan ? 'Needs your Caravan at the capital, ready to trade'
+          : isPeople && !people.length ? 'Needs a card of yours that collects counters and has room for more' : this.why(tradeA);
         const postErr = !myTurn ? 'Not your turn' : this.why(postA);
+        const pay = D.postPay(mk);
+        const postEarn = Object.keys(pay).map((r) => `${pay[r]} ${D.RES_NAME[r]}`).join(', ');
+        const trade = async () => {
+          if (isPeople && people.length > 1) { this.pickPeopleCard(tradeA, draw); return; }
+          await this.act(tradeA, true); draw();
+        };
         table.append(h('div', { class: 'tt-row' + (m.traded ? ' traded' : '') },
-          h('span', { class: 'tt-name' }, icon(mk), ' ', D.RES_SHORT[mk],
-            h('span', { class: 'posts' }, m.posts.map((pid) => h('i', { style: { background: this.colorOf(pid) }, title: `${this.nameOf(pid)}’s trading post` })))),
-          D.TRADE_TABLE[mk].map((val, i) => h('span', { class: 'tt-cell' + (i === m.pos ? ' here' : '') + (i < m.posts.length ? ' floor' : '') }, val)),
+          h('span', { class: 'tt-name', title: isPeople ? 'Nobles, Workers and other counters, for one of your cards that collects them' : '' }, icon(mk), ' ', D.RES_SHORT[mk]),
+          D.TRADE_TABLE[mk].map((val, i) => (i < m.posts.length
+            ? h('span', { class: 'tt-cell post', style: { '--pc': this.colorOf(m.posts[i]) }, title: `${this.nameOf(m.posts[i])}’s Trading Post: earns ${postEarn} whenever anyone trades here` }, h('i'))
+            : h('span', { class: 'tt-cell' + (i === m.pos ? ' here' : '') }, val))),
           h('span', { class: 'tt-act' },
-            m.traded ? h('span', { class: 'muted' }, 'traded this year') : h('button', { class: 'btn primary', dataset: { trade: mk }, disabled: !!tradeErr, title: tradeErr || '', onclick: async () => { await this.act(tradeA, true); draw(); } }, `Trade: ${D.TRADE_TABLE[mk][m.pos]}`),
-            h('button', { class: 'btn', disabled: !!postErr, title: postErr || 'Raise this marker’s floor and earn a little whenever anyone trades here', onclick: async () => { await this.act(postA, true); draw(); } }, 'Post'))));
+            m.traded ? h('span', { class: 'muted' }, 'traded this year') : h('button', { class: 'btn primary', dataset: { trade: mk }, disabled: !!tradeErr, title: tradeErr || '', onclick: trade }, `Trade: ${D.TRADE_TABLE[mk][m.pos]}`),
+            h('button', { class: 'btn', disabled: !!postErr, title: postErr || `Take the lowest free step of this row, so its marker never falls that low, and earn ${postEarn} whenever anyone trades here`, onclick: async () => { await this.act(postA, true); draw(); } }, 'Post'))));
       }
       body.append(table,
         h('div', { class: 'btn-row' }, h('span', {}, 'Pay for a trade with: '),
@@ -993,6 +1061,29 @@ export class GameScreen {
     };
     modal({ title: 'The Trade Track', body, wide: true });
     draw();
+  }
+
+  // Trading for People: choose which of your counter-collecting cards gets them.
+  pickPeopleCard(tradeA, after) {
+    const v = this.session.view();
+    const me = v.players[v.you];
+    const n = D.TRADE_TABLE.people[v.trade.people.pos];
+    const body = h('div', {}, h('p', { class: 'lead' }, `Which card receives ${n === 1 ? 'the counter' : `the ${n} counters`}?`));
+    const grid = h('div', { class: 'card-grid' });
+    for (const id of E.peopleCards(v, v.you)) {
+      const t = me.tableau.find((x) => x.id === id);
+      const card = CARD_BY_ID[id];
+      const k = Math.min(n, E.tokenRoom(card, t));
+      grid.append(cardEl(id, {
+        counters: t.counters,
+        footer: h('div', { class: 'card-use' }, h('button', {
+          class: 'btn primary', dataset: { people: id },
+          onclick: async () => { m.close(); await this.act({ ...tradeA, card: id }, true); after(); },
+        }, `Add ${k} ${D.tokenWord(card.token, k)}`, k < n ? ` (room for ${k})` : '')),
+      }));
+    }
+    body.append(grid);
+    const m = modal({ title: 'Recruit People', body, wide: true });
   }
 
   showTitles() {

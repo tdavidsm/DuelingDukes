@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import * as D from './data.js';
 import { CARD_BY_ID } from './cards.js';
 
-const RES_VALUE = { gold: 1, stone: 2, ore: 3, food: 2, rm: 3, lux: 2.5, card: 3.5 };
+const RES_VALUE = { gold: 1, stone: 2, ore: 3, food: 2, rm: 3, lux: 2.5, card: 3.5, people: 5 };
 const PROD_VALUE = { gold: 5, stone: 6, ore: 7, food: 6, rm: 7, lux: 6 };
 const SITE_WEIGHT = { food: 1.2, stone: 1.2, rm: 1.3, ore: 1.1, gold: 1.0 };
 
@@ -257,18 +257,28 @@ function chooseAction(state, pid) {
     if (u.type !== 'caravan' || u.at !== state.capital || u.acted) continue;
     let best = null;
     let bestV = 0;
+    let bestCard;
     for (const m of D.TRADE_MARKERS) {
       const mk = state.trade[m];
       if (mk.traded) continue;
-      const v = D.TRADE_TABLE[m][mk.pos] * RES_VALUE[m];
-      if (v > bestV) { bestV = v; best = m; }
+      let n = D.TRADE_TABLE[m][mk.pos];
+      let card;
+      if (m === 'people') {
+        // Counters go to the card with the most room for them.
+        const room = (id) => E.tokenRoom(CARD_BY_ID[id], p.tableau.find((t) => t.id === id));
+        card = E.peopleCards(state, pid).sort((x, y) => room(y) - room(x))[0];
+        if (!card) continue;
+        n = Math.min(n, room(card));
+      }
+      const v = n * RES_VALUE[m];
+      if (v > bestV) { bestV = v; best = m; bestCard = card; }
     }
     if (best) {
       let pay = null;
       if (p.res.rm >= cost.rm && bestV >= 7) pay = 'rm';
       else if (p.res.ore >= cost.ore + 2 && bestV >= 9) pay = 'ore';
       else if (p.res.gold >= cost.gold + 8 && bestV >= cost.gold + 4) pay = 'gold';
-      if (pay && (a = tryAct(state, pid, { type: 'tradeCapital', unit: u.id, marker: best, pay }))) return a;
+      if (pay && (a = tryAct(state, pid, { type: 'tradeCapital', unit: u.id, marker: best, pay, card: bestCard }))) return a;
     }
   }
 

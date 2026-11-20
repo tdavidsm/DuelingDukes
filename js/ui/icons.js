@@ -236,6 +236,11 @@ const TOKENS = {
     `<path d="M15 35c0-4 3.6-6.5 8-6.5 4.6 0 8 2.6 8 6 0 2-1.6 2.8-3.2 2.3-1.4-.5-2.6.2-2.6 1.6 0 1.6-1.4 2.6-3.6 2.6-3.6 0-6.6-2.2-6.6-6z" fill="#f3e3c3" stroke="${OUT}" stroke-width="1.3"/>
      <circle cx="19" cy="34" r="1.4" fill="${g('red')}"/><circle cx="23" cy="31.6" r="1.4" fill="${g('blue')}"/><circle cx="27.4" cy="32.8" r="1.4" fill="${g('gold')}"/>
      <path d="M31 30l8-8.5" stroke="${OUT}" stroke-width="2.6" stroke-linecap="round"/><path d="M31 30l8-8.5" stroke="${g('wood')}" stroke-width="1.2" stroke-linecap="round"/>`),
+  // People on the Trade Track: a little crowd, one of each kind of counter.
+  people: `
+    <g transform="translate(-6 7) scale(.72)">${figure('purple', `<path d="M16 11.5l-.6-7 3.6 3 5-5 5 5 3.6-3-.6 7z" fill="${g('gold')}" stroke="${OUT}" stroke-width="1.8" stroke-linejoin="round"/>`)}</g>
+    <g transform="translate(19.5 7) scale(.72)">${figure('amber', `<path d="M15.5 14.5c0-5 3.8-8.5 8.5-8.5s8.5 3.5 8.5 8.5c-5.6-1.6-11.4-1.6-17 0z" fill="${g('green')}" stroke="${OUT}" stroke-width="1.8"/>`)}</g>
+    <g transform="translate(4.8 8.4) scale(.8)">${figure('teal', `<path d="M14 10.5 24 6l10 4.5-10 4.6z" fill="${OUT}"/>`)}</g>`,
 };
 
 // ---------------------------------------------------------------- units

@@ -89,11 +89,12 @@ capital; trade with a duke; skirmish; raid; claim a Title;
 fund an Honor; sell cards or goods for 1 Gold each.
 
 **The Trade Track.** One shared tracker with a marker for each of Gold, Stone, Ore, Food, Raw Materials,
-Luxuries and Cards. With a Caravan at the kingdom's capital, pay 3 Raw Materials, 3 Ore or 9 Gold to
-collect the value under one marker; that marker then drops back to its floor. Every marker that nobody
+Luxuries, Cards and People. With a Caravan at the kingdom's capital, pay 3 Raw Materials, 3 Ore or 9 Gold to
+collect the value under one marker; that marker then drops back to the lowest free step. Every marker that nobody
 traded for climbs one step at year's end. Each marker can be traded once a year, each Caravan trades
-once a year. A Trading Post raises its marker's floor by a step and pays its owner a little whenever
-anyone trades there.
+once a year. People (1, 1, 1, 2, 2, 3, 3) are counters for one of your cards that collects them.
+A Trading Post slots into the lowest free step of its row (pushing the marker up if it stands there),
+so the marker never falls below it, and pays its owner a little whenever anyone trades there.
 
 **Cards.** Commissions (green, built once), Charters with lasting effects or once-a-year actions (blue),
 and Events (red). Tags let goods help pay: Stone for Building (2 Gold each), Ore for Military (3),

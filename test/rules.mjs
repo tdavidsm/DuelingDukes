@@ -2,6 +2,7 @@
 import * as E from '../js/engine/engine.js';
 import * as D from '../js/engine/data.js';
 import { botAction } from '../js/engine/bot.js';
+import { CARDS } from '../js/engine/cards.js';
 
 let failures = 0;
 let checks = 0;
@@ -99,6 +100,51 @@ function openGround(s, avoid = []) {
   eq(s.trade.stone.pos, 1, 'a post raises the floor one step');
   eq(s.players[you].res.gold, 100 - 9, 'a trade can be paid with 9 Gold');
   eq(s.players[you].stats.trades, 1, 'trades are counted');
+}
+{
+  // a post takes the bottom step of its row and pushes a marker standing there up
+  const s = fresh();
+  const me = turn(s);
+  put(s, me, 'caravan', s.capital);
+  s.trade.ore.pos = 0;
+  eq(E.apply(s, me, { type: 'std', kind: 'post', marker: 'ore' }), null, 'post on a marker at the bottom');
+  eq(s.trade.ore.pos, 1, 'the post pushes the marker up a step');
+  s.trade.food.pos = 4;
+  eq(E.apply(s, me, { type: 'std', kind: 'post', marker: 'food' }), null, 'post on a marker higher up');
+  eq(s.trade.food.pos, 4, 'a marker above the posts stays where it is');
+}
+{
+  // People: counters for a card that collects them
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  const c1 = put(s, me, 'caravan', s.capital);
+  eq(D.TRADE_TABLE.people.join(), '1,1,1,2,2,3,3', 'the People row pays 1,1,1,2,2,3,3');
+  ok(/collects counters/.test(E.check(s, me, { type: 'tradeCapital', unit: c1.id, marker: 'people', pay: 'rm' })), 'People need a card that collects counters');
+  const holder = CARDS.find((c) => c.token && c.tokenMax === 4);
+  p.tableau.push({ id: holder.id, counters: 2, used: false });
+  s.trade.people.pos = 6;
+  eq(E.apply(s, me, { type: 'tradeCapital', unit: c1.id, marker: 'people', pay: 'rm', card: holder.id }), null, 'trade for People');
+  eq(p.tableau.at(-1).counters, 4, 'counters go on the card, up to its limit');
+  eq(s.trade.people.pos, 0, 'the People marker drops back');
+  const c2 = put(s, me, 'caravan', s.capital);
+  s.trade.people.traded = false;
+  ok(/cannot hold any more/.test(E.check(s, me, { type: 'tradeCapital', unit: c2.id, marker: 'people', pay: 'rm', card: holder.id })), 'a full card cannot take People');
+}
+
+{
+  // the pass warning lists Charter actions still usable this year
+  const s = fresh();
+  const me = turn(s);
+  const p = s.players[me];
+  p.tableau.push({ id: 'foundry', counters: 0, used: false });
+  p.res.gold = 50;
+  eq(E.unusedCardActions(s, me).join(), 'foundry', 'an unused, affordable action is listed');
+  p.res.gold = 0;
+  eq(E.unusedCardActions(s, me).length, 0, 'an action you cannot afford is not listed');
+  p.res.gold = 50;
+  p.tableau.at(-1).used = true;
+  eq(E.unusedCardActions(s, me).length, 0, 'a used action is not listed');
 }
 
 // ---- movement

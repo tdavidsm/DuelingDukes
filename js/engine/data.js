@@ -5,10 +5,10 @@
 export const RES = ['gold', 'stone', 'ore', 'food', 'rm', 'lux'];
 export const PROD_RES = ['gold', 'stone', 'ore', 'food', 'rm', 'lux']; // Luxuries production comes only from cards
 export const RES_NAME = {
-  gold: 'Gold', stone: 'Stone', ore: 'Ore', food: 'Food', rm: 'Raw Materials', lux: 'Luxuries', card: 'Cards',
+  gold: 'Gold', stone: 'Stone', ore: 'Ore', food: 'Food', rm: 'Raw Materials', lux: 'Luxuries', card: 'Cards', people: 'People',
 };
 export const RES_SHORT = {
-  gold: 'Gold', stone: 'Stone', ore: 'Ore', food: 'Food', rm: 'Materials', lux: 'Luxuries', card: 'Cards',
+  gold: 'Gold', stone: 'Stone', ore: 'Ore', food: 'Food', rm: 'Materials', lux: 'Luxuries', card: 'Cards', people: 'People',
 };
 
 export const START_RF = 20;
@@ -82,10 +82,13 @@ export const STD_ORDER = ['road', 'settlers', 'town', 'city', 'caravan', 'church
 
 // The Trade Track. One shared tracker; every marker sits on a step 0..6.
 // A marker that nobody trades for climbs one step at year's end; trading for
-// it pays out the step's value and drops the marker back to its floor
-// (one step per Trading Post on that marker).
+// it pays out the step's value and drops the marker back to its floor. Trading
+// Posts sit in the bottom steps of their marker's row, one step each, so the
+// marker can never fall below them.
+// People are counters (Nobles, Workers, ...) for one of the trader's cards that
+// collects them: valuable, so the row pays little.
 export const TRADE_STEPS = 7;
-export const TRADE_MARKERS = ['gold', 'stone', 'ore', 'food', 'rm', 'lux', 'card'];
+export const TRADE_MARKERS = ['gold', 'stone', 'ore', 'food', 'rm', 'lux', 'card', 'people'];
 export const TRADE_TABLE = {
   gold: [3, 5, 8, 11, 14, 18, 22],
   stone: [1, 2, 3, 5, 6, 8, 10],
@@ -94,10 +97,14 @@ export const TRADE_TABLE = {
   rm: [1, 2, 3, 4, 5, 7, 9],
   lux: [1, 2, 4, 5, 7, 9, 12],
   card: [1, 1, 2, 2, 3, 4, 5],
+  people: [1, 1, 1, 2, 2, 3, 3],
 };
 export const TRADE_START = 1;
 export const TRADE_COST = { rm: 3, ore: 3, gold: 9 };
 export const MAX_POSTS = 3;
+// What a Trading Post's owner earns whenever anyone trades on its marker.
+export const POST_PAY = { gold: { gold: 2 }, card: { gold: 1 }, people: { gold: 1 } };
+export const postPay = (marker) => POST_PAY[marker] || { [marker]: 1 };
 
 export const TAGS = ['building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court', 'culture'];
 export const TAG_NAME = {

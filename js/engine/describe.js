@@ -143,7 +143,7 @@ export function fxpLines(fxp, card) {
   if (fxp.convert) {
     if (fxp.convert.bonus) out.push(`At year’s end, if you turn any {rm} into {lux}, gain ${fxp.convert.bonus} extra {lux}`);
     if (fxp.convert.keep) out.push(`At year’s end, your first ${fxp.convert.keep} {rm} are not turned into {lux}`);
-    if (fxp.convert.cap) out.push(`At year’s end, you may turn up to ${fxp.convert.cap} more {rm} into {lux}`);
+    if (fxp.convert.cap) out.push(`At year’s end, your towns and cities turn up to ${fxp.convert.cap} extra {rm} into {lux} (normally 1 per town, 2 per city)`);
   }
   if (fxp.luxCost) out.push(`Supplying Royal Luxuries costs you ${-fxp.luxCost} less {lux}`);
   if (fxp.cardBuy) out.push(`Cards cost you ${-fxp.cardBuy} {gold} less to buy`);

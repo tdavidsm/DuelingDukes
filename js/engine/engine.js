@@ -118,6 +118,15 @@ export function settlementsOf(state, pid) {
   return out;
 }
 
+// Bring a game saved by an older version up to date (e.g. Trade Track markers
+// added since). Safe to call on any state.
+export function upgradeState(state) {
+  if (state && state.trade) {
+    for (const m of D.TRADE_MARKERS) if (!state.trade[m]) state.trade[m] = { pos: D.TRADE_START, traded: false, posts: [] };
+  }
+  return state;
+}
+
 export function count(state, pid, what) {
   const p = state.players[pid];
   if (what.startsWith('tag:')) return tagCount(state, pid, what.slice(4));
@@ -193,6 +202,11 @@ export function findCard(state, cardId) {
   return null;
 }
 
+// The cards in this duke's tableau that collect counters and have room for more.
+export function peopleCards(state, pid) {
+  return state.players[pid].tableau.filter((t) => CARD_BY_ID[t.id].token && tokenRoom(CARD_BY_ID[t.id], t) > 0).map((t) => t.id);
+}
+
 export function tokenRoom(card, t) {
   return card.tokenMax ? Math.max(0, card.tokenMax - (t.counters || 0)) : Infinity;
 }
@@ -200,6 +214,29 @@ export function tokenRoom(card, t) {
 export function cardActs(card) {
   if (!card || !card.act) return [];
   return Array.isArray(card.act) ? card.act : [card.act];
+}
+
+// Charters whose once-a-year action this duke has not used yet this year and
+// could use right now (any one of their options, in its smallest form).
+export function unusedCardActions(state, pid) {
+  const out = [];
+  for (const t of state.players[pid].tableau) {
+    const card = CARD_BY_ID[t.id];
+    if (t.used || !card.act) continue;
+    const usable = cardActs(card).some((o, opt) => {
+      const a = { type: 'cardAction', card: t.id, opt };
+      if (o.each) {
+        a.n = 1;
+        if (o.each.choose) a.res = o.each.choose[0];
+      }
+      if (!o.token) return check(state, pid, a) === null;
+      const { from, to } = tokenTargets(state, pid, o.token);
+      if (o.token.op !== 'move') return to.some((d) => check(state, pid, { ...a, to: d.card }) === null);
+      return to.some((d) => from.some((s) => s.card !== d.card && check(state, pid, { ...a, from: s.card, to: d.card }) === null));
+    });
+    if (usable) out.push(t.id);
+  }
+  return out;
 }
 
 // Which cards a counter-moving action could take from and give to.
@@ -1214,10 +1251,16 @@ const H = {
         log(state, `${p.name} pays tribute to the crown (${paid}).`, p.id);
         raise(state, p.id, 'wealth', 1);
         break;
-      case 'post':
-        state.trade[a.marker].posts.push(p.id);
-        log(state, `${p.name} establishes a trading post for ${D.RES_NAME[a.marker]}.`, p.id);
+      case 'post': {
+        // The post takes the next step at the bottom of the row; a marker
+        // standing there is pushed up above it.
+        const m = state.trade[a.marker];
+        m.posts.push(p.id);
+        const pushed = m.pos < m.posts.length;
+        m.pos = Math.max(m.pos, Math.min(m.posts.length, D.TRADE_STEPS - 1));
+        log(state, `${p.name} establishes a trading post for ${D.RES_NAME[a.marker]}${pushed ? ', pushing its marker up a step' : ''}.`, p.id);
         break;
+      }
       default:
     }
     void map;
@@ -1269,18 +1312,29 @@ const H = {
     if (m.traded) return 'Someone has already traded for that this year';
     const cost = tradeCost(state, p.id)[a.pay];
     if (!cost) return 'Pay with Raw Materials, Ore or Gold';
+    let into = null;
+    if (a.marker === 'people') {
+      into = p.tableau.find((t) => t.id === a.card);
+      if (!peopleCards(state, p.id).includes(a.card)) {
+        return into && CARD_BY_ID[a.card].token ? `${CARD_BY_ID[a.card].name} cannot hold any more` : 'Choose one of your cards that collects counters';
+      }
+    }
     if (p.res[a.pay] < cost) return `Needs ${cost} ${D.RES_NAME[a.pay]}`;
     if (dry) return null;
     p.res[a.pay] -= cost;
     const n = D.TRADE_TABLE[a.marker][m.pos];
     if (a.marker === 'card') p.hand.push(...drawFromDeck(state, n));
-    else p.res[a.marker] += n;
-    log(state, `${p.name} trades ${cost} ${D.RES_NAME[a.pay]} at the capital for ${n} ${D.RES_NAME[a.marker]}.`, p.id);
+    else if (into) {
+      const card = CARD_BY_ID[into.id];
+      const k = Math.min(n, tokenRoom(card, into));
+      into.counters = (into.counters || 0) + k;
+      log(state, `${p.name} trades ${cost} ${D.RES_NAME[a.pay]} at the capital for ${k} ${D.tokenWord(card.token, k)} on ${card.name}.`, p.id);
+    } else p.res[a.marker] += n;
+    if (!into) log(state, `${p.name} trades ${cost} ${D.RES_NAME[a.pay]} at the capital for ${n} ${D.RES_NAME[a.marker]}.`, p.id);
     for (const o of m.posts) {
       const q = state.players[o];
-      if (a.marker === 'gold') q.res.gold += 2;
-      else if (a.marker === 'card') q.res.gold += 1;
-      else q.res[a.marker] += 1;
+      const pay = D.postPay(a.marker);
+      for (const r in pay) q.res[r] += pay[r];
     }
     m.pos = Math.min(m.posts.length, D.TRADE_STEPS - 1);
     m.traded = true;
@@ -1474,12 +1528,17 @@ function nextTurn(state) {
   endYear(state);
 }
 
+// How many unspent Raw Materials this duke's settlements work into Luxuries at
+// year's end: 1 per town, 2 per city, plus card bonuses.
+export function convertLimit(state, pid) {
+  return count(state, pid, 'towns') + 2 * count(state, pid, 'cities') + mods(state, pid).convert.cap;
+}
+
 function endYear(state) {
   for (const pid of state.order) {
     const p = state.players[pid];
     const m = mods(state, pid);
-    // Unspent Raw Materials are worked into Luxuries: 1 per town, 2 per city.
-    const cap = count(state, pid, 'towns') + 2 * count(state, pid, 'cities') + m.convert.cap;
+    const cap = convertLimit(state, pid);
     const n = Math.min(Math.max(0, p.res.rm - m.convert.keep), cap);
     if (n > 0) {
       p.res.rm -= n;

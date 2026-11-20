@@ -77,11 +77,14 @@ Counters on the cards of a duke under the King’s Peace cannot be taken. Cards 
 
 <h3>The Trade Track</h3>
 <p>One shared tracker with a marker for each kind of goods. Trading for a kind pays the value under its marker, then the marker
-<b>drops back to its floor</b>. Each year a marker that nobody traded for <b>climbs one step</b>, so neglected goods become bargains.
+<b>drops back to the lowest free step</b>. Each year a marker that nobody traded for <b>climbs one step</b>, so neglected goods become bargains.
 Each marker can be traded for only once a year.</p>
+<p>The ${ic('people')} <b>People</b> row recruits counters (Nobles, Acolytes, Scholars, Workers or Artisans) for one of your cards that collects them,
+up to the card’s limit. You need such a card with room to trade there. Counters are valuable, so the row pays little.</p>
 <table class="rules-table trade"><tr><th>Step</th>${[0, 1, 2, 3, 4, 5, 6].map((i) => `<th>${i}</th>`).join('')}</tr>${trade}</table>
-<p>A <b>Trading Post</b> raises its marker’s floor by one step, and pays its owner a little (1 of that good, or 2${ic('gold')} on the Gold marker, 1${ic('gold')} on Cards) whenever anyone trades there.
-Up to ${D.MAX_POSTS} posts per marker, one per duke.</p>
+<p>A <b>Trading Post</b> slots into the lowest free step of its row, so the marker can never fall that low again; a marker standing on that step is pushed up one.
+With one post on a row, a trade drops its marker only to the second value. A post pays its owner a little whenever anyone trades there
+(1 of that good, or 2${ic('gold')} on the Gold row, 1${ic('gold')} on Cards and People). Up to ${D.MAX_POSTS} posts per row, one per duke.</p>
 
 <h3>Units and war</h3>
 <ul>

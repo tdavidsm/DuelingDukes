@@ -32,6 +32,9 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .hidden { display: none !important; }
 .muted { opacity: 0.7; font-weight: 400; }
 .warn { color: #ffb3a1; }
+.pass-warn { border: 1px solid #ffb3a1; background: rgba(163,50,42,.18); border-radius: 8px; padding: 6px 12px; margin-bottom: 10px; }
+.pass-warn p { margin: 4px 0; }
+.pass-warn ul { margin: 4px 0 6px; padding-left: 20px; }
 .spacer { flex: 1; }
 .nowrap { white-space: nowrap; }
 
@@ -303,6 +306,18 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .card.small .cf-body { min-height: 4em; padding-bottom: 1.2em; }
 .card.small .cf-type { font-size: .7em; }
 .card-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 10px 0; }
+.tab-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 14px 2px 0; border-bottom: 1px solid rgba(217,178,90,.3); padding-bottom: 3px; }
+.tab-head h4 { margin: 0; }
+/* Commissions in the tableau: stacked so each shows only its top strip (cost,
+   title, tags and Favor Points); hovering a card lifts it out whole. */
+.card-stacks { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: flex-start; margin: 12px 0; }
+.card-stack { display: flex; flex-direction: column; }
+.card-stack .card + .card { margin-top: -18.8em; }
+.card-stack .card { transition: transform .12s, box-shadow .12s; }
+.card-stack .card:hover { z-index: 5; transform: translateY(-.4em); }
+.card-stack .card:not(:last-child):not(:hover) .cf-fp { bottom: auto; top: 2.05em; right: calc(.85em + var(--ntags, 1) * 2.15em); width: 2.6em; height: 2.6em; }
+.card-stack .card:not(:last-child):not(:hover) .cf-fp b { font-size: 1.1em; }
+.card-stack .card:not(:last-child):not(:hover) .cf-fp-rate { display: none; }
 
 /* ------------------------------------------------------------- modals */
 .modal-wrap { position: fixed; inset: 0; z-index: 50; background: rgba(8,5,3,.62); display: flex; align-items: center; justify-content: center; padding: 14px; }
@@ -336,12 +351,11 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .tt-name { width: 138px; display: flex; align-items: center; gap: 4px; flex: none; }
 .tt-cell { flex: 1; text-align: center; background: #3a2a1b; border: 1px solid var(--wood-3); border-radius: 5px; padding: 6px 0; min-width: 34px; font-weight: 700; color: rgba(244,233,205,.55); }
 .tt-head .tt-cell { background: none; border-color: transparent; font-weight: 400; font-size: 12px; padding: 0; }
-.tt-cell.floor { box-shadow: inset 0 -3px 0 #8fb07a; }
+.tt-cell.post { display: flex; align-items: center; justify-content: center; background: #2b1f14; border-style: dashed; }
+.tt-cell.post i { width: 15px; height: 15px; border-radius: 3px; background: var(--pc); border: 1.5px solid #f4e9cd; box-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .tt-cell.here { background: radial-gradient(circle at 40% 30%, #f6d67a, #c9982f); color: #2b1d10; border-color: #8a6410; transform: scale(1.08); box-shadow: 0 0 10px rgba(220,174,76,.6); }
 .tt-row.traded .tt-cell.here { background: #6d6253; color: #2b1d10; box-shadow: none; }
 .tt-act { width: 210px; display: flex; gap: 5px; justify-content: flex-end; align-items: center; flex: none; font-size: 12.5px; }
-.posts { display: inline-flex; gap: 2px; margin-left: 4px; }
-.posts i { width: 10px; height: 10px; border: 1px solid #000; transform: rotate(45deg); }
 
 .award-list { display: flex; flex-direction: column; gap: 5px; }
 .award { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(0,0,0,.25); border: 1px solid var(--wood-3); border-radius: 7px; padding: 7px 10px; }

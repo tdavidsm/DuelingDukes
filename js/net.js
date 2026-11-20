@@ -99,7 +99,7 @@ export class HostSession extends Emitter {
     s.style = data.style;
     s.seats = data.seats.map((x) => ({ ...x, connected: x.kind !== 'remote' }));
     s.tokens = data.tokens;
-    s.state = data.state;
+    s.state = E.upgradeState(data.state);
     s.resumed = true;
     s.status = data.online ? 'connecting' : 'local';
     s.seat = s.localPids()[0] || 'p0';
