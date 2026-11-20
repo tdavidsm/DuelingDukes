@@ -13,6 +13,9 @@ import { rulesHtml } from './rules.js';
 const COLOR = Object.fromEntries(D.PLAYER_COLORS.map((c) => [c.id, c.hex]));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 
+// 'Build Road' -> 'build-road': a stable hook for the tutorial's highlights.
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 // The price this duke would actually pay for a standard improvement, with a
 // note on any Stone / Ore / Food that Gold is standing in for.
 function stdPriceTag(v, kind) {
@@ -38,9 +41,10 @@ function stdShortText(v, kind) {
 }
 
 export class GameScreen {
-  constructor(root, session, onLeave) {
+  constructor(root, session, onLeave, opts = {}) {
     this.session = session;
     this.onLeave = onLeave;
+    this.onTutorial = opts.onTutorial || null;
     this.mode = null;
     this.sideTab = 'actions';
     this.phaseModal = null;
@@ -380,7 +384,7 @@ export class GameScreen {
     }
     const myTurn = this.myTurn();
     const item = (label, cost, enabled, reason, onclick, text, active) => h('button', {
-      class: 'act' + (active ? ' on' : ''), disabled: !enabled, title: enabled ? text || '' : reason || text || '', onclick,
+      class: 'act' + (active ? ' on' : ''), disabled: !enabled, title: enabled ? text || '' : reason || text || '', onclick, dataset: { act: slug(label) },
     }, h('span', { class: 'act-name' }, label), cost ? h('span', { class: 'act-cost' }, cost) : null);
 
     body.append(h('h4', {}, 'Standard improvements'));
@@ -578,7 +582,7 @@ export class GameScreen {
       h('span', { class: 'muted' }, ` moves left ${left} of ${E.moveLimit(v, u)} · roads are free`)));
     const btn = (label, action, onclick, cost) => {
       const reason = action ? this.why(action) : null;
-      box.append(h('button', { class: 'btn', disabled: !!reason, title: reason || '', onclick }, label, cost ? [' ', cost] : null));
+      box.append(h('button', { class: 'btn', disabled: !!reason, title: reason || '', onclick, dataset: { act: slug(label) } }, label, cost ? [' ', cost] : null));
     };
     const s = v.settlements[u.at];
     if (u.type === 'settlers') {
@@ -716,6 +720,15 @@ export class GameScreen {
 
   confirmLeave() {
     const host = this.session.isHost;
+    if (this.session.tutorial) {
+      const body = h('div', {},
+        h('p', {}, 'This practice game is not saved. You can play the tutorial again from the title screen or the Rules.'),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn danger', onclick: () => { m.close(); this.onLeave(); } }, 'Leave'),
+          h('button', { class: 'btn', onclick: () => m.close() }, 'Stay')));
+      const m = modal({ title: 'Leave the practice game?', body });
+      return;
+    }
     const body = h('div', {},
       h('p', {}, host ? 'You are hosting this table. If you leave, the game pauses for everyone; you can resume it later from the title screen.' : 'You can rejoin with the same table code while the game is running.'),
       h('div', { class: 'btn-row' },
@@ -1129,7 +1142,27 @@ export class GameScreen {
   }
 
   showRules() {
-    modal({ title: 'How to play Dueling Dukes', body: h('div', { class: 'rules', html: rulesHtml() }), wide: true });
+    const s = this.session;
+    const offer = this.onTutorial && !s.tutorial;
+    const body = h('div', {},
+      offer ? h('div', { class: 'rules-tutorial' },
+        h('span', {}, 'Prefer to learn by playing? The tutorial walks you through every rule in a short practice game.'),
+        h('button', { class: 'btn', id: 'btn-rules-tutorial', onclick: () => this.confirmTutorial(m) }, 'Play the tutorial')) : null,
+      h('div', { class: 'rules', html: rulesHtml() }));
+    const m = modal({ title: 'How to play Dueling Dukes', body, wide: true });
+  }
+
+  confirmTutorial(rulesModal) {
+    const s = this.session;
+    const note = !s.isHost ? 'You will leave this table. You can rejoin with the same table code while the game is running.'
+      : s.online ? 'You are hosting this table: leaving pauses the game for everyone. You can resume it later from the title screen.'
+        : 'This game is saved: you can resume it from the title screen afterwards.';
+    const body = h('div', {},
+      h('p', {}, 'The tutorial is a separate practice game. ' + note),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn primary', id: 'btn-tutorial-go', onclick: () => { m.close(); rulesModal.close(); this.onTutorial(); } }, 'Start the tutorial'),
+        h('button', { class: 'btn', onclick: () => m.close() }, 'Stay here')));
+    const m = modal({ title: 'Play the tutorial?', body });
   }
 
   showScores() {

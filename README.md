@@ -19,6 +19,10 @@ The game is a static web page. There is nothing to build and no server to run.
   invitation link. Everyone else chooses *Join a table*. Seats can also be filled with computer dukes.
 - **On one device**: *Play on this device* gives solo play against computer dukes, or pass-and-play
   with several people (hands are hidden behind a hand-over screen).
+- **Learning**: *Learn to play: the tutorial* is a practice game against one computer duke, with a
+  tutor who explains every rule, points at the screen and waits while you try each thing, then
+  finishes with some basic strategy. It is offered on a first visit, and from the in-game Rules
+  dialog. A tutorial game is never saved, so it never replaces a game in progress.
 
 ### How online play works
 
@@ -160,6 +164,7 @@ js/engine/            the rules, with no browser dependencies
   bot.js              the computer dukes
 js/net.js             host and client sessions (peer-to-peer play, saving, bots)
 js/ui/                title screen, lobby, 3D board (three.js), game screen, card faces, icons
+  tutorial.js         the tutorial: its steps, and the tutor panel that runs them
 vendor/               three.js and PeerJS (MIT), and the Cinzel and EB Garamond fonts (SIL Open Font
                       License), vendored so the game has no build step
 test/                 rule checks and bot-against-bot simulations
@@ -218,7 +223,7 @@ node test/sim.mjs 100    # 100 complete bot-against-bot games, checking invarian
 Simulated games finish in about 11 years on average (9 to 15).
 
 `test/browser/` holds end-to-end scripts that drive the real page in headless Chromium: a whole game,
-real mouse clicks on the 3D board, every interaction dialog, pass-and-play with resume, and two
-browsers playing online. They need [Playwright](https://playwright.dev/) and the local server above;
+real mouse clicks on the 3D board, every interaction dialog, pass-and-play with resume, the whole
+tutorial (`tutorial.mjs`, add `phone` for a phone-sized screen), and two browsers playing online. They need [Playwright](https://playwright.dev/) and the local server above;
 `online.mjs` also needs a local PeerJS broker (`npx peerjs --port 9000 --path / -H 127.0.0.1`).
 Each takes a folder for screenshots, for example `node test/browser/online.mjs /tmp/shots`.

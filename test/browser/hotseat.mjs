@@ -8,6 +8,8 @@ p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
 p.on('pageerror', (e) => errs.push('PAGEERROR: ' + e.stack));
 p.on('dialog', (d) => d.accept('Duchess Second'));
 await p.goto('http://localhost:8080/?fastbots');
+// a first visit offers the tutorial: decline it
+await p.click('#btn-offer-no');
 await p.fill('#name', 'Duke First');
 await p.click('#btn-local');
 await p.click('#btn-add-local');

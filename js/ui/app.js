@@ -7,6 +7,7 @@ import { rulesHtml } from './rules.js';
 import { PLAYER_COLORS } from '../engine/data.js';
 import { STATE_VERSION } from '../engine/engine.js';
 import { loadArt } from './cardview.js';
+import { Coach, createTutorialSession, startTutorialGame, tutorialOffered, markTutorialOffered } from './tutorial.js';
 
 const root = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -15,6 +16,7 @@ const COLOR = Object.fromEntries(PLAYER_COLORS.map((c) => [c.id, c.hex]));
 let session = null;
 let game = null;
 let screen = null;
+let coach = null;
 
 function savedName() {
   try { return localStorage.getItem('duelingdukes.name') || ''; } catch { return ''; }
@@ -71,13 +73,27 @@ function showHome(message) {
         saved && saved.state && saved.state.phase !== 'ended'
           ? h('button', { class: 'btn big', id: 'btn-resume', onclick: () => resumeHost() }, saved.online ? `Resume your table ${saved.code}` : 'Resume your game on this device')
           : null,
-        h('button', { class: 'btn quiet', onclick: () => modal({ title: 'How to play Dueling Dukes', body: h('div', { class: 'rules', html: rulesHtml() }), wide: true }) }, 'How to play')),
+        h('button', { class: 'btn big tutorial', id: 'btn-tutorial', onclick: () => startTutorial(getName()) }, 'Learn to play: the tutorial'),
+        h('button', { class: 'btn quiet', onclick: () => modal({ title: 'How to play Dueling Dukes', body: h('div', { class: 'rules', html: rulesHtml() }), wide: true }) }, 'Read the rules')),
       h('p', { class: 'fine' }, '2 to 5 dukes. Online tables connect players’ browsers directly; the host’s browser keeps the game, so the host should stay on the page.')));
   clear(root).append(el);
   if (params.get('join')) name.focus();
+  // The first time someone opens the game, offer them the tutorial.
+  else if (!tutorialOffered() && !saved) {
+    markTutorialOffered();
+    const m = modal({
+      title: 'New to Dueling Dukes?',
+      body: h('div', {},
+        h('p', {}, 'The tutorial is a short practice game against one computer duke. A tutor explains each rule as you go, lets you try it, and finishes with a little strategy. It takes about fifteen minutes.'),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn primary', id: 'btn-offer-yes', onclick: () => { m.close(); startTutorial(getName()); } }, 'Start the tutorial'),
+          h('button', { class: 'btn', id: 'btn-offer-no', onclick: () => m.close() }, 'No thanks'))),
+    });
+  }
 }
 
 function teardown() {
+  if (coach) { coach.destroy(); coach = null; }
   if (game) { game.destroy(); game = null; }
   if (session) { session.leave(); session = null; }
   window.__dd = null;
@@ -102,13 +118,22 @@ function resumeHost() {
   attach(s);
 }
 
+function startTutorial(name) {
+  teardown();
+  markTutorialOffered();
+  const s = createTutorialSession(name);
+  attach(s);
+  coach = new Coach(s, () => game, { onExit: () => showHome(), onKeepPlaying: () => { coach = null; } });
+  startTutorialGame(s);
+}
+
 function startClient(name, code) {
   teardown();
   attach(new ClientSession({ name, code }));
 }
 
 function leave(finished) {
-  if (session && session.isHost && finished) HostSession.clearSaved();
+  if (session && session.isHost && finished && !session.tutorial) HostSession.clearSaved();
   showHome();
 }
 
@@ -120,7 +145,7 @@ function route() {
     if (!game) {
       clear(root);
       screen = 'game';
-      game = new GameScreen(root, s, leave);
+      game = new GameScreen(root, s, leave, { onTutorial: () => startTutorial(savedName() || 'Apprentice Duke') });
     }
     return;
   }
@@ -201,7 +226,9 @@ function renderLobby() {
 await loadArt();
 
 // ?auto=local&bots=2 starts a game against bots straight away (used by the tests).
-if (params.get('auto') === 'local') {
+if (params.get('auto') === 'tutorial') {
+  startTutorial(params.get('name') || 'Tester');
+} else if (params.get('auto') === 'local') {
   const s = new HostSession({ name: params.get('name') || 'Tester', online: false });
   for (let i = 0; i < (params.has('bots') ? +params.get('bots') : 2); i++) s.addBot();
   for (let i = 0; i < (+params.get('locals') || 0); i++) s.addLocal('Local ' + (i + 2));

@@ -109,7 +109,7 @@ export class HostSession extends Emitter {
   }
 
   save() {
-    if (!this.state) return;
+    if (!this.state || this.tutorial) return; // a tutorial never replaces a saved game
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         code: this.code, online: this.online, style: this.style, seats: this.seats, tokens: this.tokens, state: this.state, at: Date.now(),
@@ -261,9 +261,9 @@ export class HostSession extends Emitter {
     this.scheduleBots();
   }
 
-  start() {
+  start(fixedSeed) {
     if (this.state || this.seats.length < 2) return;
-    const seed = hashSeed((this.code || 'local') + Date.now() + Math.random());
+    const seed = fixedSeed !== undefined ? fixedSeed : hashSeed((this.code || 'local') + Date.now() + Math.random());
     this.state = E.createGame({
       players: this.seats.map((s) => ({ id: s.pid, name: s.name, color: s.color, bot: s.kind === 'bot' })),
       seed,
@@ -328,7 +328,8 @@ export class HostSession extends Emitter {
       const pid = E.waitingOn(this.state).find((p) => this.isBotSeat(p));
       if (!pid) return;
       let action = null;
-      try { action = botAction(this.state, pid); } catch (e) { console.error(e); }
+      // The tutorial can stand in for a computer duke while it is teaching.
+      try { action = (this.botOverride && this.botOverride(this.state, pid)) || botAction(this.state, pid); } catch (e) { console.error(e); }
       if (!action || this.dispatch(pid, action)) {
         const fb = fallbackAction(this.state, pid);
         if (fb) this.dispatch(pid, fb);

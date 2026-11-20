@@ -14,6 +14,7 @@ const mk = async (name) => {
 const base = 'http://localhost:8080/?broker=localhost:9000&fastbots';
 const host = await mk('host');
 await host.goto(base);
+await host.click('#btn-offer-no'); // a first visit offers the tutorial
 await host.fill('#name', 'Duke Host');
 await host.click('#btn-host');
 await host.waitForFunction(() => window.__dd && window.__dd.session.status === 'open', null, { timeout: 20000 });
