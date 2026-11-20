@@ -131,6 +131,38 @@ function openGround(s, avoid = []) {
   s.trade.people.traded = false;
   ok(/cannot hold any more/.test(E.check(s, me, { type: 'tradeCapital', unit: c2.id, marker: 'people', pay: 'rm', card: holder.id })), 'a full card cannot take People');
 }
+{
+  // posts on the People and Cards rows pay their owner in cards
+  const s = fresh();
+  const me = turn(s);
+  put(s, me, 'caravan', s.capital);
+  eq(E.apply(s, me, { type: 'std', kind: 'post', marker: 'people' }), null, 'post on People');
+  eq(E.apply(s, me, { type: 'std', kind: 'post', marker: 'card' }), null, 'post on Cards');
+  const owner = s.players[me];
+  const you = turn(s);
+  const q = s.players[you];
+  const holder = CARDS.find((c) => c.token && c.tokenMax === 4);
+  q.tableau.push({ id: holder.id, counters: 0, used: false });
+  const c1 = put(s, you, 'caravan', s.capital);
+  const c2 = put(s, you, 'caravan', s.capital);
+  let hand = owner.hand.length;
+  eq(E.apply(s, you, { type: 'tradeCapital', unit: c1.id, marker: 'people', pay: 'rm', card: holder.id }), null, 'rival trades for People');
+  eq(owner.hand.length, hand + 1, 'a People post draws its owner a card');
+  eq(s.pending.length, 0, 'with no discard');
+  hand = owner.hand.length;
+  const discards = s.discard.length;
+  eq(E.apply(s, you, { type: 'tradeCapital', unit: c2.id, marker: 'card', pay: 'rm' }), null, 'rival trades for Cards');
+  eq(owner.hand.length, hand + 1, 'a Cards post draws its owner a card');
+  eq(s.pending[0] && s.pending[0].kind, 'discard', 'then its owner must discard');
+  ok(E.waitingOn(s).includes(me), 'the post owner is asked to choose');
+  ok(E.check(s, me, { type: 'resolve', skip: true }) !== null, 'the discard cannot be skipped');
+  const gone = owner.hand[0];
+  eq(E.apply(s, me, { type: 'resolve', card: gone }), null, 'discard a card');
+  eq(owner.hand.length, hand, 'the hand is back to its size');
+  eq(s.discard.length, discards + 1, 'the card goes to the discard pile');
+  eq(s.pending.length, 0, 'nothing left to resolve');
+  ok(E.waitingOn(s).includes(turn(s)) && !s.pending.length, 'play carries on');
+}
 
 {
   // the pass warning lists Charter actions still usable this year

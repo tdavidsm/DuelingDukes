@@ -102,9 +102,16 @@ export const TRADE_TABLE = {
 export const TRADE_START = 1;
 export const TRADE_COST = { rm: 3, ore: 3, gold: 9 };
 export const MAX_POSTS = 3;
-// What a Trading Post's owner earns whenever anyone trades on its marker.
-export const POST_PAY = { gold: { gold: 2 }, card: { gold: 1 }, people: { gold: 1 } };
+// What a Trading Post's owner earns whenever anyone trades on its marker:
+// goods, cards drawn ('draw'), and cards then discarded from hand ('discard').
+export const POST_PAY = { gold: { gold: 2 }, card: { draw: 1, discard: 1 }, people: { draw: 1 } };
 export const postPay = (marker) => POST_PAY[marker] || { [marker]: 1 };
+export function postPayText(marker) {
+  const pay = postPay(marker);
+  if (pay.draw && pay.discard) return `draws ${pay.draw} card, then discards a card`;
+  if (pay.draw) return `draws ${pay.draw} card`;
+  return 'gains ' + Object.keys(pay).map((r) => `${pay[r]} ${RES_NAME[r]}`).join(', ');
+}
 
 export const TAGS = ['building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court', 'culture'];
 export const TAG_NAME = {

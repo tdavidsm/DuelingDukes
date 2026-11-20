@@ -121,6 +121,10 @@ function resolvePending(state, pid) {
     const best = [...ch.res].sort((a, b) => RES_VALUE[b] - RES_VALUE[a])[0];
     return { type: 'resolve', res: best };
   }
+  if (pd.kind === 'discard') {
+    const worst = [...ch.cards].sort((x, y) => cardValue(state, pid, x) - cardValue(state, pid, y))[0];
+    return { type: 'resolve', card: worst };
+  }
   if (pd.kind === 'target') {
     const best = [...ch.players].sort((a, b) => state.players[b].rf - state.players[a].rf)[0];
     return { type: 'resolve', target: best };

@@ -688,6 +688,7 @@ export function pendingChoices(state) {
   if (pd.kind === 'road') return { edges: roadSpots(state, pd.pid) };
   if (pd.kind === 'unit') return { junctions: recruitSpots(state, pd.pid) };
   if (pd.kind === 'choose') return { res: pd.options };
+  if (pd.kind === 'discard') return { cards: [...state.players[pd.pid].hand] };
   if (pd.kind === 'place') return { junctions: placeTargets(state, pd.pid, pd.what) };
   if (pd.kind === 'target') {
     const players = state.order.filter((o) => {
@@ -818,7 +819,7 @@ function prunePending(state) {
   while (state.pending.length) {
     const pd = state.pending[0];
     const ch = pendingChoices(state);
-    const opts = ch.edges || ch.junctions || ch.players || ch.res || [];
+    const opts = ch.edges || ch.junctions || ch.players || ch.res || ch.cards || [];
     if (!opts.length) {
       state.pending.shift();
       log(state, `${state.players[pd.pid].name} has no way to use an effect (${pd.label.toLowerCase()}).`, pd.pid);
@@ -963,6 +964,7 @@ const H = {
     if (!pd || pd.pid !== p.id) return 'Nothing to resolve';
     const ch = pendingChoices(state);
     if (a.skip) {
+      if (pd.kind === 'discard') return 'You must discard a card';
       if (dry) return null;
       state.pending.shift();
       return null;
@@ -1002,6 +1004,13 @@ const H = {
         log(state, `${p.name} consecrates a ${pd.what}.`, p.id);
         raise(state, p.id, 'faith', 1);
       }
+    } else if (pd.kind === 'discard') {
+      if (!ch.cards.includes(a.card)) return 'Choose a card from your hand';
+      if (dry) return null;
+      state.pending.shift();
+      p.hand.splice(p.hand.indexOf(a.card), 1);
+      state.discard.push(a.card);
+      log(state, `${p.name} discards a card.`, p.id);
     } else if (pd.kind === 'choose') {
       if (!pd.options.includes(a.res)) return 'Choose one of the offered resources';
       if (dry) return null;
@@ -1334,7 +1343,15 @@ const H = {
     for (const o of m.posts) {
       const q = state.players[o];
       const pay = D.postPay(a.marker);
-      for (const r in pay) q.res[r] += pay[r];
+      for (const r in pay) {
+        if (r === 'draw') {
+          const got = drawFromDeck(state, pay.draw);
+          q.hand.push(...got);
+          if (got.length) log(state, `${q.name}’s trading post draws ${got.length === 1 ? 'a card' : `${got.length} cards`}.`, o);
+        } else if (r === 'discard') {
+          for (let i = 0; i < pay.discard; i++) state.pending.push({ pid: o, kind: 'discard', label: 'Your trading post drew you a card: discard a card from your hand' });
+        } else q.res[r] += pay[r];
+      }
     }
     m.pos = Math.min(m.posts.length, D.TRADE_STEPS - 1);
     m.traded = true;

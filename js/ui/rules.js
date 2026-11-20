@@ -84,7 +84,7 @@ up to the card’s limit. You need such a card with room to trade there. Counter
 <table class="rules-table trade"><tr><th>Step</th>${[0, 1, 2, 3, 4, 5, 6].map((i) => `<th>${i}</th>`).join('')}</tr>${trade}</table>
 <p>A <b>Trading Post</b> slots into the lowest free step of its row, so the marker can never fall that low again; a marker standing on that step is pushed up one.
 With one post on a row, a trade drops its marker only to the second value. A post pays its owner a little whenever anyone trades there
-(1 of that good, or 2${ic('gold')} on the Gold row, 1${ic('gold')} on Cards and People). Up to ${D.MAX_POSTS} posts per row, one per duke.</p>
+(1 of that good; 2${ic('gold')} on the Gold row; on the Cards row, draw 1 card and then discard any card from your hand; on the People row, draw 1 card). Up to ${D.MAX_POSTS} posts per row, one per duke.</p>
 
 <h3>Units and war</h3>
 <ul>

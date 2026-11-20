@@ -196,6 +196,7 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .card.clickable:hover { transform: translateY(-4px); }
 .card.selected .cf-frame { outline: .28em solid var(--gold); outline-offset: .1em; box-shadow: 0 0 1.6em rgba(220,174,76,.75); }
 .card.dim { filter: saturate(.5) brightness(.78); }
+.hand.discarding .card { outline: 2px dashed #ffb3a1; outline-offset: 2px; border-radius: .75em; cursor: pointer; }
 
 .cf-frame { position: absolute; inset: 0; border-radius: .75em; display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(160deg, var(--type-light), var(--type) 30%, var(--type-dark));

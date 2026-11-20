@@ -465,10 +465,17 @@ export class GameScreen {
         h('button', { class: 'btn', id: 'btn-pass', disabled: !(myTurn && v.turn.n === 0), title: 'Take no more actions this year', onclick: () => this.confirmPass() }, 'Pass for the year')));
     const hand = h('div', { class: 'hand' });
     const canPlayNow = v.phase === 'action';
+    // A trading post's discard: clicking a hand card throws it away.
+    const pd = this.myPending();
+    const discarding = !!pd && pd.kind === 'discard';
+    hand.classList.toggle('discarding', discarding);
     for (const c of me.hand) {
       const cost = E.cardCost(v, v.you, c);
       const playable = myTurn && this.ok({ type: 'playCard', card: c });
-      hand.append(cardEl(c, { small: true, cost, dim: canPlayNow && myTurn && !playable, onclick: () => this.showCard(c) }));
+      hand.append(cardEl(c, {
+        small: true, cost, dim: !discarding && canPlayNow && myTurn && !playable,
+        onclick: discarding ? () => this.act({ type: 'resolve', card: c }) : () => this.showCard(c),
+      }));
     }
     if (!me.hand.length) hand.append(h('div', { class: 'hand-empty' }, 'Your hand is empty.'));
     clear(this.bottomEl).append(bar, hand);
@@ -507,7 +514,8 @@ export class GameScreen {
       }
       for (const r of ch.res || []) line.append(h('button', { class: 'btn', onclick: () => this.act({ type: 'resolve', res: r }) }, amount(pd.n, r)));
       if (ch.edges || ch.junctions) line.append(h('span', { class: 'muted' }, ' Click a glowing spot on the map.'));
-      line.append(h('button', { class: 'btn quiet', onclick: () => this.act({ type: 'resolve', skip: true }) }, 'Skip'));
+      if (pd.kind === 'discard') line.append(h('span', { class: 'muted' }, ' Click a card in your hand.'));
+      else line.append(h('button', { class: 'btn quiet', onclick: () => this.act({ type: 'resolve', skip: true }) }, 'Skip'));
       box.append(line);
       return;
     }
@@ -1039,8 +1047,7 @@ export class GameScreen {
         const tradeErr = !myTurn ? 'Not your turn' : !caravan ? 'Needs your Caravan at the capital, ready to trade'
           : isPeople && !people.length ? 'Needs a card of yours that collects counters and has room for more' : this.why(tradeA);
         const postErr = !myTurn ? 'Not your turn' : this.why(postA);
-        const pay = D.postPay(mk);
-        const postEarn = Object.keys(pay).map((r) => `${pay[r]} ${D.RES_NAME[r]}`).join(', ');
+        const postEarn = D.postPayText(mk);
         const trade = async () => {
           if (isPeople && people.length > 1) { this.pickPeopleCard(tradeA, draw); return; }
           await this.act(tradeA, true); draw();
@@ -1048,11 +1055,11 @@ export class GameScreen {
         table.append(h('div', { class: 'tt-row' + (m.traded ? ' traded' : '') },
           h('span', { class: 'tt-name', title: isPeople ? 'Nobles, Workers and other counters, for one of your cards that collects them' : '' }, icon(mk), ' ', D.RES_SHORT[mk]),
           D.TRADE_TABLE[mk].map((val, i) => (i < m.posts.length
-            ? h('span', { class: 'tt-cell post', style: { '--pc': this.colorOf(m.posts[i]) }, title: `${this.nameOf(m.posts[i])}’s Trading Post: earns ${postEarn} whenever anyone trades here` }, h('i'))
+            ? h('span', { class: 'tt-cell post', style: { '--pc': this.colorOf(m.posts[i]) }, title: `${this.nameOf(m.posts[i])}’s Trading Post: whenever anyone trades here, its owner ${postEarn}` }, h('i'))
             : h('span', { class: 'tt-cell' + (i === m.pos ? ' here' : '') }, val))),
           h('span', { class: 'tt-act' },
             m.traded ? h('span', { class: 'muted' }, 'traded this year') : h('button', { class: 'btn primary', dataset: { trade: mk }, disabled: !!tradeErr, title: tradeErr || '', onclick: trade }, `Trade: ${D.TRADE_TABLE[mk][m.pos]}`),
-            h('button', { class: 'btn', disabled: !!postErr, title: postErr || `Take the lowest free step of this row, so its marker never falls that low, and earn ${postEarn} whenever anyone trades here`, onclick: async () => { await this.act(postA, true); draw(); } }, 'Post'))));
+            h('button', { class: 'btn', disabled: !!postErr, title: postErr || `Take the lowest free step of this row, so its marker never falls that low. Whenever anyone trades here, its owner ${postEarn}`, onclick: async () => { await this.act(postA, true); draw(); } }, 'Post'))));
       }
       body.append(table,
         h('div', { class: 'btn-row' }, h('span', {}, 'Pay for a trade with: '),

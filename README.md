@@ -94,7 +94,9 @@ collect the value under one marker; that marker then drops back to the lowest fr
 traded for climbs one step at year's end. Each marker can be traded once a year, each Caravan trades
 once a year. People (1, 1, 1, 2, 2, 3, 3) are counters for one of your cards that collects them.
 A Trading Post slots into the lowest free step of its row (pushing the marker up if it stands there),
-so the marker never falls below it, and pays its owner a little whenever anyone trades there.
+so the marker never falls below it, and pays its owner a little whenever anyone trades there: 1 of
+that good, 2 Gold on the Gold row, a card drawn on the People row, and on the Cards row a card drawn
+followed by a discard of any card from hand.
 
 **Cards.** Commissions (green, built once), Charters with lasting effects or once-a-year actions (blue),
 and Events (red). Tags let goods help pay: Stone for Building (2 Gold each), Ore for Military (3),
