@@ -13,6 +13,30 @@ import { rulesHtml } from './rules.js';
 const COLOR = Object.fromEntries(D.PLAYER_COLORS.map((c) => [c.id, c.hex]));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 
+// The price this duke would actually pay for a standard improvement, with a
+// note on any Stone / Ore / Food that Gold is standing in for.
+function stdPriceTag(v, kind) {
+  const { pay, missing } = E.stdPrice(v, v.you, kind);
+  const short = Object.keys(missing);
+  if (!short.length) return costRow(pay);
+  const gold = short.reduce((n, r) => n + missing[r] * D.SUBSTITUTE_COST[r], 0);
+  return h('span', { class: 'price' }, costRow(pay),
+    h('span', { class: 'price-note' }, 'incl. ', amount(gold, 'gold'), ' for ', short.map((r) => amount(missing[r], r))));
+}
+
+function stdMissingText(v, kind) {
+  const { missing } = E.stdPrice(v, v.you, kind);
+  const short = Object.keys(missing);
+  if (!short.length) return '';
+  return ' You are short of ' + short.map((r) => `${missing[r]} ${D.RES_NAME[r]}`).join(' and ') + ', so it is bought with Gold at '
+    + short.map((r) => `${D.SUBSTITUTE_COST[r]} each`).join(' and ') + '.';
+}
+
+function stdShortText(v, kind) {
+  const { pay } = E.stdPrice(v, v.you, kind);
+  return `Needs ${pay.gold} Gold; you have ${v.players[v.you].res.gold}.` + stdMissingText(v, kind);
+}
+
 export class GameScreen {
   constructor(root, session, onLeave) {
     this.session = session;
@@ -363,9 +387,8 @@ export class GameScreen {
     for (const kind of D.STD_ORDER) {
       const S = D.STD[kind];
       const pay = E.stdPayment(v, v.you, kind);
-      const cost = E.stdCost(v, v.you, kind);
       let enabled = myTurn && !!pay;
-      let reason = !myTurn ? 'Not your turn' : !pay ? 'You cannot afford this' : '';
+      let reason = !myTurn ? 'Not your turn' : !pay ? stdShortText(v, kind) : '';
       let go = null;
       const need = (list, msg) => { if (enabled && !list.length) { enabled = false; reason = msg; } };
       if (kind === 'road') { need(E.roadSpots(v, v.you), 'No free edge beside your roads or settlements'); go = () => this.setMode({ type: 'road' }); }
@@ -385,7 +408,7 @@ export class GameScreen {
         go = () => this.showTrade();
       }
       const active = this.mode && ((this.mode.type === 'road' && kind === 'road') || (this.mode.kind === kind) || (this.mode.purpose === kind));
-      body.append(item(S.name, costRow(cost), enabled, reason, go, S.text, active));
+      body.append(item(S.name, stdPriceTag(v, kind), enabled, reason, go, S.text + stdMissingText(v, kind), active));
     }
 
     body.append(h('h4', {}, 'Standard actions'));
@@ -552,11 +575,11 @@ export class GameScreen {
     const s = v.settlements[u.at];
     if (u.type === 'settlers') {
       const a = { type: 'std', kind: 'town', unit: u.id };
-      btn('Found a town here', a, () => this.act(a), costRow(E.stdCost(v, v.you, 'town')));
+      btn('Found a town here', a, () => this.act(a), stdPriceTag(v, 'town'));
     }
     if (u.type === 'soldiers') {
       const a = { type: 'std', kind: 'knights', unit: u.id };
-      btn('Upgrade to Knights', a, () => this.act(a, true), costRow(E.stdCost(v, v.you, 'knights')));
+      btn('Upgrade to Knights', a, () => this.act(a, true), stdPriceTag(v, 'knights'));
     }
     if (D.UNITS[u.type].str > 0 && u.at === v.capital) {
       const a = { type: 'donate', unit: u.id };

@@ -59,7 +59,7 @@ Counters earn Favor Points on the card that holds them, or are traded in for oth
 Counters on the cards of a duke under the King’s Peace cannot be taken. Cards that hold a limited number say so.</p>
 
 <h3>Standard improvements</h3>
-<p>If you lack Stone, Ore or Food for an improvement you may pay ${D.SUBSTITUTE_COST}${ic('gold')} for each missing unit (done automatically).</p>
+<p>If you lack Stone, Ore or Food for an improvement, Gold makes up the difference (done automatically), at a premium: ${D.SUBSTITUTES.map((r) => `${D.SUBSTITUTE_COST[r]}${ic('gold')} for each missing ${ic(r)} ${D.RES_NAME[r]}`).join(', ')}. Planning for the real goods is much cheaper.</p>
 <table class="rules-table">${std}</table>
 <p>You may also <b>sell cards</b> from your hand for 1${ic('gold')} each, or <b>sell goods at market</b>: any amount of one kind (Stone, Ore, Food, Raw Materials or Luxuries) for ${D.SELL_PRICE}${ic('gold')} each.</p>
 

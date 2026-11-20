@@ -16,7 +16,6 @@ export const MIN_GOLD_PROD = -5;
 export const CARD_BUY_COST = 3;
 export const RESEARCH_DRAW = 4;
 export const START_HAND = 10;
-export const SUBSTITUTE_COST = 3; // Gold per missing Stone / Ore / Food on standard improvements
 export const LUX_PER_WEALTH = 8;
 export const DUKE_TRADE_MAX = 5;
 export const KNIGHT_DONATION_GOLD = 5;
@@ -65,7 +64,7 @@ export const UNITS = {
   caravan: { name: 'Caravan', move: 3, str: 0 },
 };
 
-// Standard improvements. Missing Stone/Ore/Food may be bought at 3 Gold each.
+// Standard improvements. Missing Stone/Ore/Food may be bought with Gold (SUBSTITUTE_COST).
 export const STD = {
   road: { name: 'Build Road', cost: { stone: 1, gold: 2 }, text: 'Place a road beside one of your roads, towns or cities. Each new link between settlements gives +1 Gold production.' },
   settlers: { name: 'Recruit Settlers', cost: { food: 4, gold: 3 }, text: 'Put Settlers into play at one of your towns or cities.' },
@@ -113,6 +112,13 @@ export const TAG_PAY = {
   court: { res: 'lux', value: 2 },
   culture: { res: 'lux', value: 2 },
 };
+// Gold paid for each missing Stone / Ore / Food on a standard improvement: what
+// the good is worth on cards plus a penalty, so planning for the real goods pays.
+// Stone 4, Ore 5, Food 4.
+export const SUBSTITUTE_PENALTY = 2;
+export const SUBSTITUTES = ['stone', 'ore', 'food'];
+export const SUBSTITUTE_COST = Object.fromEntries(SUBSTITUTES.map((r) =>
+  [r, Object.values(TAG_PAY).find((t) => t.res === r).value + SUBSTITUTE_PENALTY]));
 
 export const HOUSES = [
   { id: 'aurelis', name: 'House Aurelis', motto: 'The Merchant Princes', gold: 42, tags: ['trade'],

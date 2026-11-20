@@ -67,7 +67,7 @@ Raw Materials, Ore Mountains → Ore, Water → Gold. Mountains produce nothing 
 takes one or two actions, until everyone has passed. At year's end each town turns 1 unspent Raw
 Material into a Luxury and each city 2; then production arrives.
 
-**Standard improvements** (missing Stone, Ore or Food can be bought at 3 Gold each):
+**Standard improvements** (missing goods can be bought with Gold at a premium: 4 Gold per Stone, 5 per Ore, 4 per Food):
 
 | Improvement | Cost | Effect |
 |---|---|---|

@@ -144,7 +144,11 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .act:hover:not(:disabled) { border-color: var(--gold); background: #4a3523; }
 .act:disabled { opacity: 0.42; cursor: not-allowed; }
 .act.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-.act-cost { font-size: 12.5px; opacity: 0.95; }
+.act-cost { font-size: 12.5px; opacity: 0.95; text-align: right; }
+.price { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.price-note { font-size: 10.5px; color: #e8a86a; white-space: nowrap; }
+.price-note .amt { margin: 0 1px; }
+.btn .price { vertical-align: middle; }
 .log { flex: 1; overflow: auto; font-size: 13px; line-height: 1.3; min-height: 0; }
 .log-row { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
 .log-row.chat { background: rgba(220,174,76,.1); }

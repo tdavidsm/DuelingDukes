@@ -512,22 +512,32 @@ export function stdCost(state, pid, kind) {
   return cost;
 }
 
-// How a standard improvement would actually be paid: goods first, then Gold
-// (including 3 Gold for each missing Stone / Ore / Food). Null if unaffordable.
-export function stdPayment(state, pid, kind) {
+// What a standard improvement would actually take from this duke: goods first,
+// then Gold, including D.SUBSTITUTE_COST Gold for each missing Stone / Ore / Food.
+// `missing` lists the goods bought with Gold. Given whether or not it is affordable.
+export function stdPrice(state, pid, kind) {
   const p = state.players[pid];
   const cost = stdCost(state, pid, kind);
   const pay = {};
+  const missing = {};
   let gold = cost.gold || 0;
-  for (const r of ['stone', 'ore', 'food']) {
+  for (const r of D.SUBSTITUTES) {
     const need = cost[r] || 0;
     const have = Math.min(need, p.res[r]);
     if (have) pay[r] = have;
-    gold += (need - have) * D.SUBSTITUTE_COST;
+    if (need > have) {
+      missing[r] = need - have;
+      gold += missing[r] * D.SUBSTITUTE_COST[r];
+    }
   }
-  if (gold > p.res.gold) return null;
   pay.gold = gold;
-  return pay;
+  return { pay, missing };
+}
+
+// How a standard improvement would be paid, or null if unaffordable.
+export function stdPayment(state, pid, kind) {
+  const { pay } = stdPrice(state, pid, kind);
+  return pay.gold > state.players[pid].res.gold ? null : pay;
 }
 
 export function tradeCost(state, pid) {
