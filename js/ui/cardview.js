@@ -34,7 +34,9 @@ export const hasArt = (id) => ART.has(id);
 //   art:    { h: picture height, x, y: focal point in %, zoom }
 //   title:  { size, x, y }
 //   body:   { size, padX: side padding, gap: space between parts }
-//   icons | explain | words | actions | flavor: { size, width: % of the panel, y: extra space above, hide }
+//   icons | explain | words | actions | flavor: { size, width: % of the panel, y: extra space above, hide,
+//            pos: [x, y] to lift it out of the panel and place it anywhere on the card, w: its width then,
+//            back: a parchment backing behind it (for text placed over the picture) }
 //   badges: { cost | tags | req | fp | tokens: [x, y] }   moved by this much
 let LAYOUTS = new Map();
 export const savedLayouts = () => LAYOUTS;
@@ -80,18 +82,38 @@ export function applyLayout(el, L, name) {
     const gap = fin(L.body.gap, 0, 3);
     if (gap !== null) body.style.gap = gap + 'em';
   }
+  const frame = q('.cf-frame');
   for (const [part, sel] of Object.entries(LAYOUT_PARTS)) {
     const P = L[part];
     if (!P || !body) continue;
-    for (const node of body.querySelectorAll(':scope > ' + sel)) {
-      if (P.hide) { node.style.display = 'none'; continue; }
+    const nodes = [...body.querySelectorAll(':scope > ' + sel)];
+    if (!nodes.length) continue;
+    // Placed freely: lifted out of the panel's column, with all its lines,
+    // to an exact spot on the card.
+    if (!P.hide && Array.isArray(P.pos) && frame) {
+      const w = fin(P.w, 2, 17);
+      const box = document.createElement('div');
+      box.className = 'cf-floated' + (P.back ? ' cf-backed' : '');
+      box.dataset.float = part;
+      Object.assign(box.style, {
+        left: `${fin(P.pos[0], -2, 18) ?? 0}em`,
+        top: `${fin(P.pos[1], -2, 25) ?? 0}em`,
+        width: w ? `${w}em` : 'auto',
+        fontSize: `${fin(P.size, 0.4, 2.5) ?? 1}em`,
+      });
+      box.append(...nodes);
+      frame.append(box);
+      continue;
+    }
+    nodes.forEach((node) => {
+      if (P.hide) { node.style.display = 'none'; return; }
       const size = fin(P.size, 0.4, 2.5);
       if (size !== null) node.style.zoom = size;
       const w = fin(P.width, 20, 100);
       if (w !== null && w < 100) Object.assign(node.style, { maxWidth: w + '%', alignSelf: 'center', width: '100%' });
       const dy = fin(P.y, -6, 6);
       if (dy) node.style.marginTop = dy + 'em';
-    }
+    });
   }
   for (const [badge, sel] of Object.entries(LAYOUT_BADGES)) {
     const B = L.badges && L.badges[badge];

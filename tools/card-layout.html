@@ -38,6 +38,8 @@
   .ed-big .cf-art.resize { cursor: ns-resize; }
   .ed-big .cf-cost, .ed-big .cf-tags, .ed-big .cf-req, .ed-big .cf-fp, .ed-big .cf-tokens, .ed-big .cf-title { cursor: move; }
   .ed-big .cf-body > * { cursor: ns-resize; }
+  .ed-big [data-float], .ed-big [data-float] * { cursor: move; }
+  .ed-big [data-float]:hover { outline: 1px dashed rgba(246,214,122,.8); outline-offset: 1px; }
   .ed-big .cf-body > *:hover, .ed-big .cf-cost:hover, .ed-big .cf-tags:hover, .ed-big .cf-req:hover, .ed-big .cf-fp:hover, .ed-big .cf-tokens:hover, .ed-big .cf-title:hover { outline: 1px dashed rgba(246,214,122,.8); outline-offset: 1px; }
   .ed-hl { outline: 2px solid #f6d67a !important; outline-offset: 2px; }
   .ed-help { font-size: 13px; opacity: .8; max-width: 640px; text-align: center; line-height: 1.4; }
@@ -245,7 +247,7 @@ function renderStage() {
       h('button', { class: 'btn', title: 'Previous card ( [ )', onclick: () => step(-1) }, '◀'),
       h('h2', {}, it.name),
       h('button', { class: 'btn', title: 'Next card ( ] )', onclick: () => step(1) }, '▶')),
-    h('p', { class: 'ed-help' }, 'Drag the picture to move it, scroll on it to zoom, and drag its bottom edge to make it taller or shorter. Drag the title, coin, tags, seals and badges to move them. Drag a block of text up or down to change the space above it. The panel on the right has every setting.'),
+    h('p', { class: 'ed-help' }, 'Drag the picture to move it, scroll on it to zoom, and drag its bottom edge to make it taller or shorter. Drag the title, coin, tags, seals and badges to move them. Drag a block of text up or down to change the space above it, or tick “Move freely” for a block (such as the flavour text) and drag it anywhere on the card. The panel on the right has every setting.'),
     wrap,
     fit,
     h('div', { class: 'ed-sizes' },
@@ -264,16 +266,55 @@ function overflowOf(card) {
   const fr = frame.getBoundingClientRect();
   return type.getBoundingClientRect().bottom > fr.bottom + 1 || body.scrollHeight > body.clientHeight + 2;
 }
+function offCard(card) {
+  const fr = card.querySelector('.cf-frame').getBoundingClientRect();
+  return [...card.querySelectorAll('[data-float]')].filter((n) => {
+    const r = n.getBoundingClientRect();
+    return r.left < fr.left - 1 || r.top < fr.top - 1 || r.right > fr.right + 1 || r.bottom > fr.bottom + 1;
+  }).map((n) => PART_NAME[n.dataset.float].toLowerCase());
+}
 function checkFit() {
   const box = document.getElementById('fit');
   if (!box || !big) return;
   const small = stage.querySelector('.ed-sizes .card.small');
   const bad = overflowOf(big);
   const badSmall = small && overflowOf(small);
-  box.className = bad || badSmall ? 'ed-warn' : 'ed-ok';
+  const off = offCard(big);
+  box.className = bad || badSmall || off.length ? 'ed-warn' : 'ed-ok';
   box.textContent = bad ? 'Something is cut off at the bottom: shorten the picture, or shrink or narrow the text.'
-    : badSmall ? 'It fits at full size, but something is cut off on the hand-sized card.'
-      : 'Everything fits.';
+    : off.length ? `The ${off.join(' and ')} hangs off the edge of the card.`
+      : badSmall ? 'It fits at full size, but something is cut off on the hand-sized card.'
+        : 'Everything fits.';
+}
+
+// Lift a block out of the panel exactly where it is now drawn, so ticking the box moves nothing.
+function floatPart(k, on) {
+  if (!on) {
+    for (const key of ['pos', 'w', 'back']) setPath(sel, k + '.' + key, undefined);
+    return;
+  }
+  const px = bigPx();
+  const frame = big.querySelector('.cf-frame');
+  const fb = frame.getBoundingClientRect();
+  // Placed blocks are measured from just inside the frame's border.
+  const fr = { left: fb.left + frame.clientLeft, top: fb.top + frame.clientTop };
+  const nodes = [...big.querySelectorAll('.cf-body > ' + LAYOUT_PARTS[k])];
+  if (!nodes.length) return;
+  const rs = nodes.map((n) => n.getBoundingClientRect());
+  const left = Math.min(...rs.map((r) => r.left));
+  const top = Math.min(...rs.map((r) => r.top));
+  const right = Math.max(...rs.map((r) => r.right));
+  // Out of the panel it no longer shares the panel's text size (a busy card's
+  // smaller text, or a size set for the whole panel), so carry that over.
+  const L = current(sel) || {};
+  const body = big.querySelector('.cf-body');
+  const ratio = (parseFloat(getComputedStyle(body).fontSize) / px) * (getPath(L, 'body.size') || 1);
+  const size = r2((getPath(L, k + '.size') || 1) * ratio);
+  setPath(sel, k + '.size', Math.abs(size - 1) < 0.005 ? undefined : size);
+  setPath(sel, k + '.y', undefined);
+  setPath(sel, k + '.width', undefined);
+  setPath(sel, k + '.w', r2((right - left) / px));
+  setPath(sel, k + '.pos', [r2((left - fr.left) / px), r2((top - fr.top) / px)]);
 }
 
 // Redraw after a change, keeping the controls in step.
@@ -299,6 +340,8 @@ function attachDrag(wrap) {
       const n = card.querySelector(':scope > ' + s);
       if (n && n.contains(e.target)) target = { badge: k };
     }
+    const fl = e.target.closest('[data-float]');
+    if (!target && fl && card.contains(fl)) target = { float: fl.dataset.float };
     if (!target && e.target.closest('.cf-title, .cf-ribbon')) target = { title: true };
     if (!target) {
       const bodyChild = [...card.querySelectorAll('.cf-body > *')].find((n) => n.contains(e.target));
@@ -319,6 +362,7 @@ function attachDrag(wrap) {
       badge: target.badge ? (getPath(L, 'badges.' + target.badge) || [0, 0]) : null,
       title: [getPath(L, 'title.x') || 0, getPath(L, 'title.y') || 0],
       part: target.part ? getPath(L, target.part + '.y') || 0 : 0,
+      float: target.float ? getPath(L, target.float + '.pos') || [0, 0] : null,
       ax: getPath(L, 'art.x') ?? 50,
       ay: getPath(L, 'art.y') ?? 50,
     };
@@ -327,6 +371,7 @@ function attachDrag(wrap) {
       const dy = (ev.clientY - start.y) / px;
       if (target.badge) setPath(sel, 'badges.' + target.badge, [r2(round(base.badge[0] + dx, 0.05)), r2(round(base.badge[1] + dy, 0.05))]);
       else if (target.title) { setPath(sel, 'title.x', r2(round(base.title[0] + dx, 0.05)) || undefined); setPath(sel, 'title.y', r2(round(base.title[1] + dy, 0.05)) || undefined); }
+      else if (target.float) setPath(sel, target.float + '.pos', [r2(round(base.float[0] + dx, 0.05)), r2(round(base.float[1] + dy, 0.05))]);
       else if (target.part) setPath(sel, target.part + '.y', r2(round(base.part + dy, 0.05)) || undefined);
       else if (target.artH) setPath(sel, 'art.h', r2(Math.max(2, Math.min(18, round(target.artH + dy, 0.1)))));
       else if (target.pan) {
@@ -429,14 +474,26 @@ function renderControls() {
       slider('body.size', 'Text size', { min: 0.6, max: 1.4, step: 0.01, def: 1, fmt: pct, unit: '%' }),
       slider('body.padX', 'Side margins', { min: 0, max: 3, step: 0.05, def: auto['body.padX'], unit: 'em' }),
       slider('body.gap', 'Spacing', { min: 0, max: 1.5, step: 0.02, def: auto['body.gap'], unit: 'em' })),
-    ...auto.parts.map((k) => group(PART_NAME[k], [':scope .cf-body > ' + LAYOUT_PARTS[k]],
-      slider(k + '.size', 'Size', { min: 0.5, max: 1.8, step: 0.01, def: 1, fmt: pct, unit: '%' }),
-      slider(k + '.width', 'Width', { min: 30, max: 100, step: 1, def: 100, unit: '%' }),
-      slider(k + '.y', 'Space above', { min: -2, max: 4, step: 0.05, def: 0, unit: 'em' }),
-      h('label', { class: 'ed-check' }, h('input', {
-        type: 'checkbox', checked: !!getPath(L, k + '.hide'),
-        onchange: (e) => { setPath(sel, k + '.hide', e.target.checked || undefined); changed(); },
-      }), 'Hide it'))),
+    ...auto.parts.map((k) => {
+      const placed = Array.isArray(getPath(L, k + '.pos'));
+      const check = (label, path, onChange) => h('label', { class: 'ed-check' }, h('input', {
+        type: 'checkbox', checked: !!getPath(L, path), dataset: { check: path },
+        onchange: (e) => { onChange(e.target.checked); changed(); },
+      }), label);
+      return group(PART_NAME[k], [':scope .cf-body > ' + LAYOUT_PARTS[k], `:scope [data-float="${k}"]`],
+        slider(k + '.size', 'Size', { min: 0.5, max: 1.8, step: 0.01, def: 1, fmt: pct, unit: '%' }),
+        ...(placed ? [
+          slider(k + '.pos.0', 'Across', { min: -1, max: 16, step: 0.05, def: 0, unit: 'em' }),
+          slider(k + '.pos.1', 'Down', { min: -1, max: 23, step: 0.05, def: 0, unit: 'em' }),
+          slider(k + '.w', 'Width', { min: 2, max: 16.5, step: 0.05, def: 15, unit: 'em' }),
+          check('Parchment backing (for text over the picture)', k + '.back', (on) => setPath(sel, k + '.back', on || undefined)),
+        ] : [
+          slider(k + '.width', 'Width', { min: 30, max: 100, step: 1, def: 100, unit: '%' }),
+          slider(k + '.y', 'Space above', { min: -2, max: 4, step: 0.05, def: 0, unit: 'em' }),
+        ]),
+        check('Move freely: lift it out of the text panel and drag it anywhere', k + '.pos', (on) => floatPart(k, on)),
+        check('Hide it', k + '.hide', (on) => setPath(sel, k + '.hide', on || undefined)));
+    }),
     auto.badges.length ? group('Badges', auto.badges.map((k) => ':scope > ' + LAYOUT_BADGES[k]),
       h('p', { class: 'muted', style: { fontSize: '12.5px', margin: '0 0 4px' } }, 'Drag them on the card. Moved badges:'),
       ...auto.badges.map((k) => {

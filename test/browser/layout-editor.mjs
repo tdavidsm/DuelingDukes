@@ -88,6 +88,53 @@ if (!styles.tuned || !styles.tags || !styles.art.startsWith('0 0') || !styles.zo
 if (plain) fail('a card without a layout was changed');
 await g.screenshot({ path: out + '/layout-4-in-game.png' });
 
+// Move a card's flavour text freely: lift it out, drag it onto the picture, give it a backing.
+const flav = await p.evaluate(async () => {
+  const { CARDS } = await import('/js/engine/cards.js');
+  const { hasArt } = await import('/js/ui/cardview.js');
+  return CARDS.find((c) => c.flavor && hasArt(c.id) && c.id !== 'market_hall').id;
+});
+await p.goto(base + '/tools/card-layout.html?card=' + flav);
+await p.waitForSelector('body[data-ready]');
+const before = await p.$eval('#big .cf-body > .cf-flavor', (n) => n.getBoundingClientRect().top);
+await p.click('[data-check="flavor.pos"]');
+await p.waitForSelector('#big [data-float="flavor"]');
+const lifted = await p.$eval('#big [data-float="flavor"]', (n) => n.getBoundingClientRect().top);
+if (Math.abs(lifted - before) > 2) fail(`ticking "move freely" moved the flavour text (${before} -> ${lifted})`);
+const fb = await (await p.$('#big [data-float="flavor"]')).boundingBox();
+const artBox = await (await p.$('#big .cf-art')).boundingBox();
+await p.mouse.move(fb.x + 10, fb.y + fb.height / 2);
+await p.mouse.down();
+await p.mouse.move(fb.x + 10, artBox.y + artBox.height - fb.height - 24 + fb.height / 2, { steps: 8 });
+await p.mouse.up();
+await p.click('[data-check="flavor.back"]');
+await p.waitForTimeout(200);
+const fd = await p.evaluate((id) => JSON.parse(localStorage.getItem('duelingdukes.layoutDrafts'))[id], flav);
+console.log('flavour draft', JSON.stringify(fd));
+if (!fd.flavor || !Array.isArray(fd.flavor.pos) || !fd.flavor.back || !(fd.flavor.w > 0)) fail('flavour text was not placed');
+const onArt = await p.evaluate(() => {
+  const f = document.querySelector('#big [data-float="flavor"]').getBoundingClientRect();
+  const a = document.querySelector('#big .cf-art').getBoundingClientRect();
+  return f.top >= a.top && f.bottom <= a.bottom + 1;
+});
+if (!onArt) { await p.screenshot({ path: out + "/layout-5-flavour-fail.png" }); console.log("rects", JSON.stringify(await p.evaluate(() => [document.querySelector("#big [data-float=flavor]").getBoundingClientRect(), document.querySelector("#big .cf-art").getBoundingClientRect()]))); fail("flavour text did not land on the picture"); }
+await p.screenshot({ path: out + '/layout-5-flavour.png' });
+console.log('fit:', await p.textContent('#fit'));
+await p.click('#btn-save');
+const json2 = await p.$eval('#layout-json', (t) => t.value);
+await p.click('.modal .x');
+const g2 = await ctx.newPage();
+await g2.route('**/art/cards/layouts.json', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: json2 }));
+await g2.goto(base + `/tools/card-preview.html?only=cards&cards=${flav}&extra=granary`);
+await g2.waitForSelector('body[data-ready]');
+const inGame = await g2.$eval(`.card[data-card="${flav}"]`, (c) => {
+  const f = c.querySelector('.cf-frame > [data-float="flavor"]');
+  return f && { backed: f.classList.contains('cf-backed'), text: f.textContent.slice(0, 30), inBody: !!c.querySelector('.cf-body .cf-flavor') };
+});
+console.log('flavour in game', JSON.stringify(inGame));
+if (!inGame || !inGame.backed || inGame.inBody) fail('the game did not place the flavour text');
+await g2.screenshot({ path: out + '/layout-6-flavour-game.png' });
+
 // Reset the card to automatic and discard.
 await p.click('.ed-item[data-id="market_hall"]');
 await p.click('#btn-reset-card');

@@ -265,6 +265,9 @@ h1, h2, h3, h4 { font-family: var(--display); letter-spacing: 0.04em; margin: 0;
 .cf-or { text-align: center; font-family: "Cinzel", var(--display); font-size: .6em; font-weight: 700; color: #8e2a22; letter-spacing: .1em; text-transform: uppercase; margin: .05em 0; }
 .cf-muted { opacity: .5; }
 .cf-flavor { margin: .1em 0 0; font-style: italic; font-size: .74em; color: #5b452c; text-align: center; line-height: 1.18; }
+.cf-floated { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: .25em; }
+.cf-floated > * { margin: 0; }
+.cf-backed { background: rgba(250,241,218,.9); padding: .25em .5em; border-radius: .4em; box-shadow: 0 .05em .35em rgba(0,0,0,.45), inset 0 0 0 .08em rgba(90,60,20,.4); }
 .cf-type { flex: none; text-align: center; font-family: "Cinzel", var(--display); font-weight: 700; font-size: .6em; letter-spacing: .14em; text-transform: uppercase; color: #fbf0d0; padding-top: .35em; text-shadow: 0 .08em 0 #000; display: flex; justify-content: center; align-items: center; gap: .35em; }
 .cf-paywith { display: inline-flex; align-items: center; gap: .2em; letter-spacing: .06em; opacity: .9; }
 .cf-paywith .ico { width: 1.6em; height: 1.6em; }
