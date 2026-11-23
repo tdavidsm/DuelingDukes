@@ -217,8 +217,11 @@ copying and pasting for you, and can match a batch of downloaded files to cards 
 **Card layouts.** `tools/card-layout.html` (on the published site: `…/DuelingDukes/tools/card-layout.html`)
 fine-tunes particular cards with their art in place. Pick a card, then drag the picture to recentre it,
 scroll on it to zoom, drag its bottom edge to change its height, drag the title, coin, tags, seals and
-badges to move them, and drag blocks of text up or down; sliders cover the same and more (text size,
-width and spacing, side margins, hiding the flavour line). It warns when something no longer fits and
+badges to move them, and drag blocks of text up or down, or tick *Move freely* and drag one anywhere on
+the card; sliders cover the same and more (text size, width and spacing, side margins, hiding a block).
+The **Text** boxes change a card's wording: its flavour text (or a house's motto), rules text, the
+explanation under its icons, and its yearly action written out in words. `{gold}`, `{ore}` and so on
+draw icons, and an empty box takes that text off the card. It warns when something no longer fits and
 shows the card at full size and hand size. Changes are kept in that browser until saved. **Save to the
 game** gives the whole `art/cards/layouts.json` to copy, with a link that opens that file on GitHub for
 pasting and committing, or to download. Cards without an entry keep the automatic layout.

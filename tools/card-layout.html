@@ -59,6 +59,17 @@
   .ed-row .rs { background: none; border: 0; color: inherit; opacity: .5; cursor: pointer; font-size: 14px; padding: 0; }
   .ed-row .rs:hover { opacity: 1; }
   .ed-row .rs[disabled] { visibility: hidden; }
+  .ed-text { margin: 4px 0 8px; }
+  .ed-text label { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 2px; }
+  .ed-text label .muted { margin-left: auto; font-size: 11.5px; }
+  .ed-text textarea { width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical; font: 14px/1.35 "EB Garamond", var(--serif); background: #f6ecd2; color: #2b1d10; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+  .ed-text.set textarea { border-color: #f6d67a; box-shadow: 0 0 0 1px #f6d67a; }
+  .ed-text .rs { background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; font-size: 13px; padding: 0 2px; }
+  .ed-text .rs[disabled] { visibility: hidden; }
+  .ed-icons { display: flex; flex-wrap: wrap; gap: 2px; margin: 2px 0 6px; }
+  .ed-icons button { background: rgba(255,255,255,.06); border: 1px solid transparent; border-radius: 4px; padding: 1px; cursor: pointer; line-height: 0; }
+  .ed-icons button:hover { border-color: var(--gold); }
+  .ed-icons .ico { width: 20px; height: 20px; }
   .ed-check { display: flex; gap: 6px; align-items: center; font-size: 13px; padding: 2px 0 2px 2px; }
   .ed-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
   textarea.ed-json { width: 100%; height: 220px; font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; background: #120d09; color: #e9dab2; border: 1px solid var(--line); border-radius: 6px; padding: 8px; box-sizing: border-box; }
@@ -92,7 +103,9 @@
 </div>
 <script type="module">
 import { h, clear, modal, toast } from '../js/ui/dom.js';
-import { cardEl, houseEl, loadArt, hasArt, savedLayouts, LAYOUT_PARTS, LAYOUT_BADGES } from '../js/ui/cardview.js';
+import { cardEl, houseEl, loadArt, hasArt, savedLayouts, autoText, LAYOUT_PARTS, LAYOUT_BADGES } from '../js/ui/cardview.js';
+import { ICONS } from '../js/ui/icons.js';
+import { icon } from '../js/ui/dom.js';
 import { CARDS, CARD_BY_ID } from '../js/engine/cards.js';
 import { HOUSES, HOUSE_BY_ID } from '../js/engine/data.js';
 
@@ -247,7 +260,7 @@ function renderStage() {
       h('button', { class: 'btn', title: 'Previous card ( [ )', onclick: () => step(-1) }, '◀'),
       h('h2', {}, it.name),
       h('button', { class: 'btn', title: 'Next card ( ] )', onclick: () => step(1) }, '▶')),
-    h('p', { class: 'ed-help' }, 'Drag the picture to move it, scroll on it to zoom, and drag its bottom edge to make it taller or shorter. Drag the title, coin, tags, seals and badges to move them. Drag a block of text up or down to change the space above it, or tick “Move freely” for a block (such as the flavour text) and drag it anywhere on the card. The panel on the right has every setting.'),
+    h('p', { class: 'ed-help' }, 'Edit the wording in the Text boxes on the right. Drag the picture to move it, scroll on it to zoom, and drag its bottom edge to make it taller or shorter. Drag the title, coin, tags, seals and badges to move them. Drag a block of text up or down to change the space above it, or tick “Move freely” for a block (such as the flavour text) and drag it anywhere on the card. The panel on the right has every setting.'),
     wrap,
     fit,
     h('div', { class: 'ed-sizes' },
@@ -401,7 +414,9 @@ let drag = null;
 const ctlEl = document.getElementById('controls');
 // Automatic values, read from the card as drawn without adjustments.
 function automatic(id) {
-  const probe = render(id, null);
+  // Drawn with your wording (so added text gets its controls) but no other adjustments.
+  const t = getPath(current(id), 'text');
+  const probe = render(id, t ? { text: t } : null);
   probe.style.cssText = 'position:absolute;left:-9999px;top:0;font-size:20px';
   document.body.append(probe);
   const px = 20;
@@ -420,6 +435,7 @@ function automatic(id) {
 }
 
 const ROWS = [];
+let automaticParts = '';
 function slider(path, label, { min, max, step, def, unit = '', fmt = (v) => v, onRemove }) {
   const L = current(sel);
   const v = getPath(L, path);
@@ -457,10 +473,12 @@ function renderControls() {
   clear(ctlEl);
   if (!sel) return;
   const auto = automatic(sel);
+  automaticParts = auto.parts.join();
   const L = current(sel);
   const group = (title, sels, ...rows) => hlOn(h('div', { class: 'ed-group' }, h('h3', {}, title), ...rows), sels);
   const pct = (v) => Math.round(v * 100);
   ctlEl.append(
+    textGroup(),
     group('Picture', ['.cf-art'],
       slider('art.h', 'Height', { min: 2, max: 18, step: 0.1, def: auto['art.h'], unit: 'em' }),
       slider('art.zoom', 'Zoom', { min: 1, max: 3, step: 0.01, def: 1, fmt: (v) => '×' + v }),
@@ -506,6 +524,100 @@ function renderControls() {
       isDraft(sel) && saved.has(sel) ? h('button', { class: 'btn', onclick: () => { delete drafts[sel]; persist(); changed(); } }, 'Undo my changes') : null),
     h('p', { class: 'muted', style: { fontSize: '12.5px' } }, isDraft(sel) ? 'Changed here. Use “Save to the game” to make it permanent.'
       : saved.has(sel) ? 'This layout is in the game.' : 'Automatic layout, as the game draws it.'));
+}
+
+// ---------------------------------------------------------------- the text
+// Leaving a text box can add or remove controls (text added to a card gets its
+// own size and position controls), so the panel is rebuilt then, but only once
+// the next click has landed, and with the cursor kept in the box now in use.
+function refreshKeepingFocus() {
+  setTimeout(() => {
+    const before = automaticParts;
+    const now = automatic(sel).parts.join();
+    if (before === now) return;
+    const a = document.activeElement;
+    const key = a && a.dataset && a.dataset.text;
+    const pos = key ? [a.selectionStart, a.selectionEnd] : null;
+    const top = ctlEl.scrollTop;
+    renderControls();
+    ctlEl.scrollTop = top;
+    if (key) {
+      const n = ctlEl.querySelector(`textarea[data-text="${key}"]`);
+      if (n) { n.focus(); n.setSelectionRange(pos[0], pos[1]); lastBox = n; }
+    }
+  }, 0);
+}
+// The card's wording. Each box starts with the text the game prints; whatever
+// you change is kept for this card, and ↺ goes back to the game's own text.
+const ICON_PICKS = ['gold', 'stone', 'ore', 'food', 'rm', 'lux', 'card', 'rf', 'fp', 'building', 'military', 'trade', 'farming', 'faith', 'scholar', 'court', 'culture',
+  'tok-noble', 'tok-acolyte', 'tok-scholar', 'tok-worker', 'tok-artisan', 'settlers', 'soldiers', 'knights', 'caravan', 'road', 'church', 'cathedral', 'city', 'power', 'wealth']
+  .filter((n) => ICONS[n]);
+let lastBox = null;
+function textGroup() {
+  const auto = autoText(sel);
+  const L = current(sel);
+  const isHouse = ITEM[sel].kind === 'house';
+  const box = (key, label, autoVal, note) => {
+    const v = getPath(L, 'text.' + key);
+    const isSet = typeof v === 'string';
+    const ta = h('textarea', { dataset: { text: key }, rows: Math.min(6, Math.max(2, String(isSet ? v : autoVal || '').split('\n').length + 1)) });
+    ta.value = isSet ? v : autoVal || '';
+    const wrap = h('div', { class: 'ed-text' + (isSet ? ' set' : '') });
+    const reset = h('button', { class: 'rs', title: 'Back to the game’s own text', disabled: !isSet, onclick: () => { setPath(sel, 'text.' + key, undefined); changed(); } }, '↺');
+    ta.addEventListener('focus', () => { lastBox = ta; });
+    ta.addEventListener('input', () => {
+      // Matching the game's own text again is the same as not changing it.
+      setPath(sel, 'text.' + key, ta.value === (autoVal || '') ? undefined : ta.value);
+      wrap.classList.toggle('set', ta.value !== (autoVal || ''));
+      reset.disabled = ta.value === (autoVal || '');
+      changed(false);
+    });
+    ta.addEventListener('change', refreshKeepingFocus);
+    wrap.append(h('label', {}, label, note ? h('span', { class: 'muted' }, note) : null, reset), ta);
+    return wrap;
+  };
+  const actBoxes = auto.actions.map((a, i) => {
+    const v = getPath(L, 'text.actions');
+    const cur = Array.isArray(v) && typeof v[i] === 'string' && v[i] ? v[i] : null;
+    const ta = h('textarea', { dataset: { text: 'actions.' + i }, rows: 2, placeholder: 'Leave empty to draw it with icons' });
+    ta.value = cur || '';
+    const wrap = h('div', { class: 'ed-text' + (cur ? ' set' : '') });
+    ta.addEventListener('focus', () => { lastBox = ta; });
+    ta.addEventListener('input', () => {
+      const arr = Array.from({ length: auto.actions.length }, (_, k) => (Array.isArray(getPath(current(sel), 'text.actions')) ? getPath(current(sel), 'text.actions')[k] || '' : ''));
+      arr[i] = ta.value;
+      setPath(sel, 'text.actions', arr.some((x) => x.trim()) ? arr : undefined);
+      wrap.classList.toggle('set', !!ta.value.trim());
+      changed(false);
+    });
+    ta.addEventListener('change', refreshKeepingFocus);
+    wrap.append(h('label', {}, auto.actions.length > 1 ? `Yearly action ${i + 1} in words` : 'Yearly action in words',
+      h('span', { class: 'muted', title: a }, 'drawn as icons unless you write it out'),
+      h('button', { class: 'rs', title: 'Fill in the game’s wording', onclick: () => { ta.value = a; ta.dispatchEvent(new Event('input')); ta.focus(); } }, '✎')), ta);
+    return wrap;
+  });
+  const picker = h('div', { class: 'ed-icons', title: 'Click to put an icon into the text box you last clicked in' },
+    ICON_PICKS.map((n) => h('button', {
+      title: `{${n}}`,
+      onmousedown: (e) => e.preventDefault(),
+      onclick: () => {
+        const ta = lastBox && document.body.contains(lastBox) ? lastBox : ctlEl.querySelector('textarea');
+        if (!ta) return;
+        const s = ta.selectionStart ?? ta.value.length;
+        ta.value = ta.value.slice(0, s) + `{${n}}` + ta.value.slice(ta.selectionEnd ?? s);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = s + n.length + 2;
+        ta.dispatchEvent(new Event('input'));
+      },
+    }, icon(n))));
+  return hlOn(h('div', { class: 'ed-group' },
+    h('h3', {}, 'Text', h('span', { class: 'muted' }, 'new line = new paragraph')),
+    box('flavor', isHouse ? 'Motto' : 'Flavour text', auto.flavor, auto.flavor ? '' : 'none yet: write one to add it'),
+    box('words', 'Rules text', auto.words, auto.words ? '' : 'none: anything you write is added'),
+    auto.explain !== null ? box('explain', 'Explanation of the icons', auto.explain) : null,
+    ...actBoxes,
+    h('p', { class: 'muted', style: { fontSize: '12px', margin: '2px 0' } }, 'Icons: write {gold}, {stone}, {fp} and so on, or click one below. Empty a box to take that text off the card.'),
+    picker), ['.cf-body']);
 }
 
 // ---------------------------------------------------------------- saving

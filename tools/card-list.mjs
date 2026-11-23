@@ -2,13 +2,21 @@
 //   node tools/card-list.mjs [out-folder]
 // Writes card-list.html and, if Playwright is installed, card-list.pdf.
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CARDS } from '../js/engine/cards.js';
 import * as D from '../js/engine/data.js';
 import { describeCard, describeHouse, plain } from '../js/engine/describe.js';
 
 const outDir = resolve(process.argv[2] || 'docs');
+// Flavour text edited in tools/card-layout.html replaces the card's own.
+let LAYOUTS = {};
+try { LAYOUTS = JSON.parse(readFileSync(new URL('../art/cards/layouts.json', import.meta.url), 'utf8')).cards || {}; } catch { /* none */ }
+const flavorOf = (card) => {
+  const t = LAYOUTS[card.id] && LAYOUTS[card.id].text;
+  const f = t && typeof t.flavor === 'string' ? t.flavor.trim() : card.flavor;
+  return f ? plain(f) : '';
+};
 mkdirSync(outDir, { recursive: true });
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -34,7 +42,7 @@ function row(card) {
     + (d.actions.length === 1 ? `<div class="act"><b>Action, once a year:</b> ${esc(plain(d.actions[0]))}.</div>` : '')
     + (d.actions.length > 1 ? `<div class="act"><b>Action, once a year, choose one:</b><ul>${d.actions.map((a) => `<li>${esc(plain(a))}.</li>`).join('')}</ul></div>` : '')
     + (card.token ? `<div class="pay">Collects ${D.TOKENS[card.token].many}</div>` : '')
-    + (card.flavor ? `<div class="flavor">“${esc(card.flavor)}”</div>` : '');
+    + (flavorOf(card) ? `<div class="flavor">“${esc(flavorOf(card))}”</div>` : '');
   return `<tr class="t-${card.type}">
     <td class="num">${n}</td>
     <td class="name">${esc(card.name)}</td>

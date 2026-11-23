@@ -38,6 +38,9 @@ export const hasArt = (id) => ART.has(id);
 //            pos: [x, y] to lift it out of the panel and place it anywhere on the card, w: its width then,
 //            back: a parchment backing behind it (for text placed over the picture) }
 //   badges: { cost | tags | req | fp | tokens: [x, y] }   moved by this much
+//   text:   { flavor, words, explain, actions: [one per option] }   the card's own wording, used in
+//           place of the automatic text; {gold} and the like draw icons, a new line starts a new
+//           paragraph, and an empty string removes that text from the card
 let LAYOUTS = new Map();
 export const savedLayouts = () => LAYOUTS;
 export const LAYOUT_PARTS = { icons: '.cf-icons', explain: '.cf-explain', words: '.cf-words', actions: '.cf-actions', flavor: '.cf-flavor' };
@@ -287,17 +290,47 @@ function titleClass(name) {
 }
 
 // ------------------------------------------------------------------ cards
-export function cardEl(cardId, opts = {}) {
-  const card = CARD_BY_ID[cardId];
-  const d = describeCard(card);
-  const cost = opts.cost !== undefined ? opts.cost : card.cost;
+// The text the automatic layout prints on a card, as editable strings.
+export function autoText(id) {
+  const card = CARD_BY_ID[id];
+  if (!card) {
+    const house = HOUSE_BY_ID[id];
+    const start = fxRow(house.start, null);
+    return { flavor: house.motto, words: [...start.words, ...fxpLines(house.fxp, null)].map((w) => w + '.').join('\n'), explain: null, actions: [] };
+  }
   const main = fxRow(card.fx, card);
   const words = [...main.words, ...fxpLines(card.fxp, card)];
   if (card.tokenMax) words.push(`Holds at most ${card.tokenMax} ${TOKENS[card.token].many}`);
   const acts = !card.act ? [] : Array.isArray(card.act) ? card.act : [card.act];
+  const explain = main.icons.length && !acts.length && words.length <= 1
+    ? (card.fx || []).filter((f) => !main.words.includes(fxText(f, card))).map((f) => fxText(f, card)).join('. ') + '.'
+    : null;
+  return { flavor: card.flavor || '', words: words.map((w) => w + '.').join('\n'), explain, actions: acts.map((o) => actionText(o, card) + '.') };
+}
+
+const lines = (s) => String(s).split('\n').map((x) => x.trim()).filter(Boolean);
+const textOf = (L, key) => (L && L.text && typeof L.text[key] === 'string' ? L.text[key] : null);
+
+export function cardEl(cardId, opts = {}) {
+  const card = CARD_BY_ID[cardId];
+  const d = describeCard(card);
+  const cost = opts.cost !== undefined ? opts.cost : card.cost;
+  const L = opts.layout !== undefined ? opts.layout : LAYOUTS.get(cardId);
+  const main = fxRow(card.fx, card);
+  let words = [...main.words, ...fxpLines(card.fxp, card)].map((w) => w + '.');
+  if (card.tokenMax) words.push(`Holds at most ${card.tokenMax} ${TOKENS[card.token].many}.`);
+  const acts = !card.act ? [] : Array.isArray(card.act) ? card.act : [card.act];
+  // The card's own wording, where it has been edited.
+  const autoExplain = main.icons.length && !acts.length && words.length <= 1
+    ? (card.fx || []).filter((f) => !main.words.includes(fxText(f, card))).map((f) => fxText(f, card)).join('. ') + '.'
+    : null;
+  if (textOf(L, 'words') !== null) words = lines(textOf(L, 'words'));
+  const explain = textOf(L, 'explain') !== null ? textOf(L, 'explain').trim() || null : autoExplain;
+  const flavor = textOf(L, 'flavor') !== null ? textOf(L, 'flavor').trim() || null : card.flavor || null;
+  const actWords = (L && L.text && Array.isArray(L.text.actions)) ? L.text.actions : [];
   const payWith = [...new Set(card.tags.map((t) => TAG_PAY[t] && TAG_PAY[t].res).filter(Boolean))];
   // How much the text panel has to hold, so busy cards can give up some of their art.
-  const load = words.length + acts.length * 1.6 + acts.filter((o) => o.token || o.each).length * 0.6 + (card.flavor ? 0.8 : 0) + (main.icons.length ? 0.8 : 0);
+  const load = words.length + acts.length * 1.6 + acts.filter((o) => o.token || o.each).length * 0.6 + (flavor ? 0.8 : 0) + (main.icons.length ? 0.8 : 0);
   const busy = load >= 5.5 ? ' cf-busy2' : load >= 4 ? ' cf-busy' : '';
 
   const el = h('div', {
@@ -312,14 +345,15 @@ export function cardEl(cardId, opts = {}) {
     h('div', { class: 'cf-body' },
       main.icons.length ? h('div', { class: 'cf-icons' }, ...main.icons) : null,
       // When there is room, spell out what the icons mean, as the original's cards do.
-      main.icons.length && !acts.length && words.length <= 1
-        ? h('p', { class: 'cf-explain' }, rich((card.fx || []).filter((f) => !main.words.includes(fxText(f, card))).map((f) => fxText(f, card)).join('. ') + '.'))
-        : null,
-      words.map((w) => h('p', { class: 'cf-words' }, rich(w + '.'))),
+      explain ? h('p', { class: 'cf-explain' }, rich(explain)) : null,
+      words.map((w) => h('p', { class: 'cf-words' }, rich(w))),
       acts.length ? h('div', { class: 'cf-actions' },
         h('div', { class: 'cf-act-head' }, acts.length > 1 ? 'Once a year, choose one' : 'Once a year'),
-        ...acts.map((o, i) => [i ? h('div', { class: 'cf-or' }, 'or') : null, actionEl(o, card)])) : null,
-      card.flavor ? h('p', { class: 'cf-flavor' }, card.flavor) : null),
+        ...acts.map((o, i) => [i ? h('div', { class: 'cf-or' }, 'or') : null,
+          typeof actWords[i] === 'string' && actWords[i].trim()
+            ? h('div', { class: 'cf-act cf-act-words', title: actionText(o, card).replace(/\{(\w+)\}/g, (_, r) => RES_NAME[r] || r) }, rich(actWords[i].trim()))
+            : actionEl(o, card)])) : null,
+      flavor ? h('p', { class: 'cf-flavor' }, rich(flavor)) : null),
     h('div', { class: 'cf-type' }, TYPE_LABEL[card.type], payWith.length ? h('span', { class: 'cf-paywith', title: 'Goods that can help pay for this card' }, '· pay with', ...payWith.map((r) => icon(r))) : null)),
   h('div', { class: 'cf-cost' + (cost < card.cost ? ' cheaper' : ''), title: cost < card.cost ? `Costs you ${cost} Gold (printed ${card.cost})` : `Costs ${cost} Gold` }, icon('coin', 'cf-coin'), h('b', {}, String(cost))),
   h('div', { class: 'cf-tags' }, card.tags.map((t) => icon(t, 'cf-tag')), card.type === 'event' ? icon('event', 'cf-tag') : null),
@@ -331,13 +365,16 @@ export function cardEl(cardId, opts = {}) {
   }, icon(tokIcon(card)), opts.counters !== undefined ? h('b', {}, String(opts.counters || 0)) : null) : null,
   opts.footer || null);
   void d;
-  return applyLayout(el, opts.layout !== undefined ? opts.layout : LAYOUTS.get(cardId), card.name);
+  return applyLayout(el, L, card.name);
 }
 
 export function houseEl(houseId, opts = {}) {
   const house = HOUSE_BY_ID[houseId];
   const d = describeHouse(house);
   const start = fxRow(house.start, null);
+  const L = opts.layout !== undefined ? opts.layout : LAYOUTS.get(houseId);
+  const words = textOf(L, 'words') !== null ? lines(textOf(L, 'words')) : [...start.words, ...fxpLines(house.fxp, null)].map((w) => w + '.');
+  const motto = textOf(L, 'flavor') !== null ? textOf(L, 'flavor').trim() || null : house.motto;
   const el = h('div', {
     class: `card cf house${opts.selected ? ' selected' : ''}${opts.onclick ? ' clickable' : ''}`,
     onclick: opts.onclick || null,
@@ -348,12 +385,11 @@ export function houseEl(houseId, opts = {}) {
     artEl(houseId, house.tags[0] || 'rf', null),
     h('div', { class: 'cf-body' },
       h('div', { class: 'cf-icons' }, h('span', { class: 'cf-fx', title: `Start with ${house.gold} Gold` }, num(house.gold), ic('gold')), ...start.icons),
-      start.words.map((w) => h('p', { class: 'cf-words' }, rich(w + '.'))),
-      fxpLines(house.fxp, null).map((w) => h('p', { class: 'cf-words' }, rich(w + '.'))),
-      h('p', { class: 'cf-flavor' }, house.motto)),
+      words.map((w) => h('p', { class: 'cf-words' }, rich(w))),
+      motto ? h('p', { class: 'cf-flavor' }, rich(motto)) : null),
     h('div', { class: 'cf-type' }, 'Noble house')),
   h('div', { class: 'cf-tags' }, house.tags.map((t) => icon(t, 'cf-tag'))));
-  return applyLayout(el, opts.layout !== undefined ? opts.layout : LAYOUTS.get(houseId), house.name);
+  return applyLayout(el, L, house.name);
 }
 
 export { UNITS };

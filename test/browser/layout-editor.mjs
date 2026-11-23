@@ -135,6 +135,39 @@ console.log('flavour in game', JSON.stringify(inGame));
 if (!inGame || !inGame.backed || inGame.inBody) fail('the game did not place the flavour text');
 await g2.screenshot({ path: out + '/layout-6-flavour-game.png' });
 
+// Edit the wording: new flavour text with an icon, shorter rules text, and an action in words.
+const actCard = await p.evaluate(async () => {
+  const { CARDS } = await import('/js/engine/cards.js');
+  return CARDS.find((c) => c.act && !Array.isArray(c.act) && !c.flavor).id;
+});
+await p.goto(base + '/tools/card-layout.html?card=' + actCard);
+await p.waitForSelector('body[data-ready]');
+if (await p.$('#big .cf-flavor')) fail('card was expected to have no flavour text yet');
+await p.fill('textarea[data-text="flavor"]', 'Gold flows where the river bends.');
+await p.click('textarea[data-text="flavor"]');
+await p.keyboard.press('End');
+await p.click('.ed-icons button[title="{gold}"]');
+await p.fill('textarea[data-text="actions.0"]', 'Pay {gold}, take what you need.');
+await p.waitForTimeout(200);
+const wording = await p.evaluate(() => ({
+  flavour: document.querySelector('#big .cf-flavor')?.innerHTML,
+  action: document.querySelector('#big .cf-actions .cf-act-words')?.textContent,
+}));
+console.log('wording', JSON.stringify(wording));
+if (!wording.flavour || !wording.flavour.includes("river bends") || !/ico/.test(wording.flavour)) fail("flavour text with an icon was not drawn");
+if (!wording.action || !wording.action.includes('take what you need')) fail('action wording was not drawn');
+// The flavour group appears for the newly added text, so it can be moved too.
+if (!(await p.$('[data-check="flavor.pos"]'))) fail('added flavour text has no layout controls');
+// Back to the game's wording.
+await p.fill('textarea[data-text="actions.0"]', '');
+await p.click('.ed-text:has(textarea[data-text="flavor"]) .rs');
+await p.waitForTimeout(200);
+if (await p.$('#big .cf-flavor')) fail('resetting the flavour did not remove it');
+const textDraft = await p.evaluate((id) => (JSON.parse(localStorage.getItem('duelingdukes.layoutDrafts'))[id] || null), actCard);
+console.log('after reset', JSON.stringify(textDraft));
+if (textDraft) fail('reset text left a draft behind');
+await p.screenshot({ path: out + '/layout-7-text.png' });
+
 // Reset the card to automatic and discard.
 await p.click('.ed-item[data-id="market_hall"]');
 await p.click('#btn-reset-card');
