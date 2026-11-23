@@ -153,7 +153,8 @@ constants in `js/engine/data.js` or `js/engine/cards.js` and easy to change:
 
 ```
 index.html            the page
-art/cards/            card art (game-sized) and index.json, the list of cards that have art
+art/cards/            card art (game-sized), index.json (the cards that have art) and layouts.json
+                      (hand-tuned layouts for particular cards)
 css/style.css         all styling
 js/engine/            the rules, with no browser dependencies
   data.js             costs, tracks, Trade Track tables, houses, titles, honors
@@ -213,6 +214,15 @@ is filed under that card and the next card comes up. **Download all as zip** giv
 and carry on another day. The page also has a ready-made instruction for Claude in Chrome to do the
 copying and pasting for you, and can match a batch of downloaded files to cards instead.
 
+**Card layouts.** `tools/card-layout.html` (on the published site: `…/DuelingDukes/tools/card-layout.html`)
+fine-tunes particular cards with their art in place. Pick a card, then drag the picture to recentre it,
+scroll on it to zoom, drag its bottom edge to change its height, drag the title, coin, tags, seals and
+badges to move them, and drag blocks of text up or down; sliders cover the same and more (text size,
+width and spacing, side margins, hiding the flavour line). It warns when something no longer fits and
+shows the card at full size and hand size. Changes are kept in that browser until saved. **Save to the
+game** gives the whole `art/cards/layouts.json` to copy, with a link that opens that file on GitHub for
+pasting and committing, or to download. Cards without an entry keep the automatic layout.
+
 ## Tests
 
 ```bash
@@ -224,6 +234,7 @@ Simulated games finish in about 11 years on average (9 to 15).
 
 `test/browser/` holds end-to-end scripts that drive the real page in headless Chromium: a whole game,
 real mouse clicks on the 3D board, every interaction dialog, pass-and-play with resume, the whole
-tutorial (`tutorial.mjs`, add `phone` for a phone-sized screen), and two browsers playing online. They need [Playwright](https://playwright.dev/) and the local server above;
+tutorial (`tutorial.mjs`, add `phone` for a phone-sized screen), the card layout editor
+(`layout-editor.mjs`), and two browsers playing online. They need [Playwright](https://playwright.dev/) and the local server above;
 `online.mjs` also needs a local PeerJS broker (`npx peerjs --port 9000 --path / -H 127.0.0.1`).
 Each takes a folder for screenshots, for example `node test/browser/online.mjs /tmp/shots`.

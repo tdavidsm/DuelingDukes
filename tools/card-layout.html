@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Layout Editor</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { margin: 0; background: radial-gradient(ellipse at 50% 0%, #4a3523 0%, #21160e 60%, #120d09 100%) fixed; color: var(--parch); }
+  .ed { display: grid; grid-template-columns: 250px 1fr 330px; grid-template-rows: auto 1fr; height: 100vh; }
+  .ed-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: rgba(20,14,9,.7); flex-wrap: wrap; }
+  .ed-top h1 { font-size: 20px; margin: 0; color: var(--gold-2); }
+  .ed-status { opacity: .85; font-size: 14px; }
+  .ed-status b { color: #f6d67a; }
+  .ed-top .spacer { flex: 1; }
+  .ed-list { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .ed-list .field { margin: 8px 8px 4px; width: auto; }
+  .ed-filter { display: flex; gap: 4px; padding: 0 8px 6px; flex-wrap: wrap; }
+  .ed-filter button { font-size: 12px; padding: 3px 7px; }
+  .ed-items { overflow: auto; flex: 1; padding: 0 4px 10px; }
+  .ed-item { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none; border: 1px solid transparent; color: inherit; padding: 4px 6px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 14px; }
+  .ed-item:hover { background: rgba(255,255,255,.05); }
+  .ed-item.on { border-color: var(--gold); background: rgba(220,174,76,.12); }
+  .ed-item .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .ed-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ed-item .mk { font-size: 11px; flex: none; }
+  .mk.draft { color: #f6b36a; }
+  .mk.saved { color: #9fd18a; }
+  .mk.noart { opacity: .45; }
+  .ed-stage { overflow: auto; min-height: 0; padding: 16px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .ed-nav { display: flex; align-items: center; gap: 10px; }
+  .ed-nav h2 { margin: 0; font-size: 18px; color: var(--gold-2); min-width: 260px; text-align: center; }
+  .ed-big { position: relative; touch-action: none; user-select: none; }
+  .ed-big .card { font-size: var(--ed-px, 25px); }
+  .ed-big .card.small { font-size: var(--ed-px, 25px); }
+  .ed-big .cf-art { cursor: grab; }
+  .ed-big .cf-art.resize { cursor: ns-resize; }
+  .ed-big .cf-cost, .ed-big .cf-tags, .ed-big .cf-req, .ed-big .cf-fp, .ed-big .cf-tokens, .ed-big .cf-title { cursor: move; }
+  .ed-big .cf-body > * { cursor: ns-resize; }
+  .ed-big .cf-body > *:hover, .ed-big .cf-cost:hover, .ed-big .cf-tags:hover, .ed-big .cf-req:hover, .ed-big .cf-fp:hover, .ed-big .cf-tokens:hover, .ed-big .cf-title:hover { outline: 1px dashed rgba(246,214,122,.8); outline-offset: 1px; }
+  .ed-hl { outline: 2px solid #f6d67a !important; outline-offset: 2px; }
+  .ed-help { font-size: 13px; opacity: .8; max-width: 640px; text-align: center; line-height: 1.4; }
+  .ed-warn { background: rgba(163,50,42,.25); border: 1px solid #ffb3a1; color: #ffd4c8; padding: 5px 12px; border-radius: 8px; font-size: 14px; }
+  .ed-ok { background: rgba(60,122,75,.22); border: 1px solid #9fd18a; color: #d8f0cc; padding: 5px 12px; border-radius: 8px; font-size: 14px; }
+  .ed-sizes { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+  .ed-sizes figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .ed-sizes figcaption { font-size: 12px; opacity: .75; }
+  .ed-ctl { border-left: 1px solid var(--line); overflow: auto; min-height: 0; padding: 6px 12px 30px; }
+  .ed-group { margin: 10px 0 4px; }
+  .ed-group h3 { font-family: "Cinzel", var(--display); font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-2); margin: 0 0 4px; display: flex; align-items: center; }
+  .ed-group h3 .muted { margin-left: auto; font-family: inherit; text-transform: none; letter-spacing: 0; font-size: 11px; }
+  .ed-row { display: grid; grid-template-columns: 96px 1fr 44px 20px; gap: 6px; align-items: center; font-size: 13px; padding: 2px 0; }
+  .ed-row input[type=range] { width: 100%; accent-color: #dcae4c; }
+  .ed-row .val { text-align: right; font-variant-numeric: tabular-nums; opacity: .9; }
+  .ed-row.set .val { color: #f6d67a; font-weight: 700; }
+  .ed-row .rs { background: none; border: 0; color: inherit; opacity: .5; cursor: pointer; font-size: 14px; padding: 0; }
+  .ed-row .rs:hover { opacity: 1; }
+  .ed-row .rs[disabled] { visibility: hidden; }
+  .ed-check { display: flex; gap: 6px; align-items: center; font-size: 13px; padding: 2px 0 2px 2px; }
+  .ed-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  textarea.ed-json { width: 100%; height: 220px; font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; background: #120d09; color: #e9dab2; border: 1px solid var(--line); border-radius: 6px; padding: 8px; box-sizing: border-box; }
+  .ed-steps { margin: 8px 0; padding-left: 20px; line-height: 1.45; }
+  .ed-steps li { margin: 4px 0; }
+  @media (max-width: 1000px) {
+    html, body { overflow: auto; height: auto; }
+    .ed { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
+    .ed-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }
+    .ed-ctl { border-left: 0; }
+    .ed-big .card { font-size: var(--ed-px, 19px); }
+  }
+</style>
+</head>
+<body>
+<div class="ed" id="ed">
+  <div class="ed-top">
+    <h1>Card layout editor</h1>
+    <span class="ed-status" id="status"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="btn-discard">Discard my changes…</button>
+    <button class="btn primary" id="btn-save">Save to the game…</button>
+  </div>
+  <div class="ed-list">
+    <input class="field" id="search" placeholder="Search cards">
+    <div class="ed-filter" id="filters"></div>
+    <div class="ed-items" id="items"></div>
+  </div>
+  <div class="ed-stage" id="stage"></div>
+  <div class="ed-ctl" id="controls"></div>
+</div>
+<script type="module">
+import { h, clear, modal, toast } from '../js/ui/dom.js';
+import { cardEl, houseEl, loadArt, hasArt, savedLayouts, LAYOUT_PARTS, LAYOUT_BADGES } from '../js/ui/cardview.js';
+import { CARDS, CARD_BY_ID } from '../js/engine/cards.js';
+import { HOUSES, HOUSE_BY_ID } from '../js/engine/data.js';
+
+const DRAFT_KEY = 'duelingdukes.layoutDrafts';
+const params = new URLSearchParams(location.search);
+await loadArt('../');
+
+// Where "Save to the game" sends you: the repository this page is served from.
+const REPO = (() => {
+  const m = location.hostname.match(/^([\w-]+)\.github\.io$/);
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  return m && seg ? `${m[1]}/${seg}` : 'tdavidsm/DuelingDukes';
+})();
+const EDIT_URL = `https://github.com/${REPO}/edit/main/art/cards/layouts.json`;
+
+// ------------------------------------------------------------ the cards
+const ITEMS = [
+  ...CARDS.map((c) => ({ id: c.id, name: c.name, kind: c.type, cost: c.cost })),
+  ...HOUSES.map((x) => ({ id: x.id, name: x.name, kind: 'house', cost: null })),
+];
+const ITEM = Object.fromEntries(ITEMS.map((x) => [x.id, x]));
+const COLOR = { project: '#3c7a4b', active: '#2f5d9b', event: '#a3322a', house: '#6a3fa0' };
+const PART_NAME = { icons: 'Effect icons', explain: 'Explanation', words: 'Rules text', actions: 'Yearly action', flavor: 'Flavour text' };
+const BADGE_NAME = { cost: 'Cost coin', tags: 'Tags', req: 'Requirement', fp: 'Favor seal', tokens: 'Counters' };
+
+const render = (id, layout, opts = {}) => (ITEM[id].kind === 'house' ? houseEl(id, { layout, ...opts }) : cardEl(id, { layout, ...opts }));
+
+// ------------------------------------------------------ drafts and saved
+const saved = savedLayouts();
+let drafts = {};
+try { drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch { drafts = {}; }
+const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+// Drafts that now match what the game has are no longer drafts (e.g. once saved).
+for (const id of Object.keys(drafts)) if (!ITEM[id] || same(drafts[id], saved.get(id))) delete drafts[id];
+const persist = () => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts)); } catch { /* storage full */ } };
+persist();
+
+const current = (id) => (id in drafts ? drafts[id] : saved.get(id)) || null;
+const isDraft = (id) => id in drafts;
+
+// Sorted keys and no empty objects, so layouts compare and print the same way.
+function canon(L) {
+  if (!L || typeof L !== 'object') return null;
+  if (Array.isArray(L)) return L;
+  const out = {};
+  for (const k of Object.keys(L).sort()) {
+    const v = L[k];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const c = canon(v);
+      if (c) out[k] = c;
+    } else if (v !== undefined && v !== null && v !== false) out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function getPath(L, path) {
+  let o = L;
+  for (const k of path.split('.')) { if (!o || typeof o !== 'object') return undefined; o = o[k]; }
+  return o;
+}
+function setPath(id, path, value) {
+  const L = structuredClone(current(id) || {});
+  const keys = path.split('.');
+  let o = L;
+  for (const k of keys.slice(0, -1)) { if (!o[k] || typeof o[k] !== 'object') o[k] = {}; o = o[k]; }
+  if (value === undefined) delete o[keys.at(-1)];
+  else o[keys.at(-1)] = value;
+  const c = canon(L);
+  if (same(c, saved.get(id))) delete drafts[id];
+  else drafts[id] = c;
+  persist();
+}
+const round = (v, step) => Math.round(v / step) * step;
+const r2 = (v) => Math.round(v * 100) / 100;
+
+// The whole layouts file: what the game has, with your changes on top.
+function merged() {
+  const cards = {};
+  for (const [id, L] of saved) if (ITEM[id]) cards[id] = canon(L);
+  for (const [id, L] of Object.entries(drafts)) { if (L) cards[id] = canon(L); else delete cards[id]; }
+  for (const id of Object.keys(cards)) if (!cards[id]) delete cards[id];
+  const ids = Object.keys(cards).sort();
+  const lines = ids.map((id, i) => `    ${JSON.stringify(id)}: ${JSON.stringify(cards[id])}${i < ids.length - 1 ? ',' : ''}`);
+  return `{\n  "v": 1,\n  "cards": {\n${lines.join('\n')}${lines.length ? '\n' : ''}  }\n}\n`;
+}
+
+// ----------------------------------------------------------- the list
+let filter = params.get('filter') || 'art';
+let sel = params.get('card') && ITEM[params.get('card')] ? params.get('card') : null;
+const searchEl = document.getElementById('search');
+const visible = () => {
+  const q = searchEl.value.trim().toLowerCase();
+  return ITEMS.filter((x) => {
+    if (q && !x.name.toLowerCase().includes(q) && !x.id.includes(q)) return false;
+    if (filter === 'art') return hasArt(x.id);
+    if (filter === 'changed') return isDraft(x.id) || saved.has(x.id);
+    if (filter === 'noart') return !hasArt(x.id);
+    return true;
+  });
+};
+function renderList() {
+  clear(document.getElementById('filters')).append(...[['art', 'With pictures'], ['changed', 'Adjusted'], ['all', 'All'], ['noart', 'No picture']].map(([k, t]) =>
+    h('button', { class: 'btn' + (filter === k ? ' on' : ''), onclick: () => { filter = k; renderList(); } }, t)));
+  const list = visible();
+  clear(document.getElementById('items')).append(...list.map((x) => h('button', {
+    class: 'ed-item' + (x.id === sel ? ' on' : ''), dataset: { id: x.id }, onclick: () => select(x.id),
+  },
+  h('span', { class: 'dot', style: { background: COLOR[x.kind] } }),
+  h('span', { class: 'nm' }, x.name),
+  isDraft(x.id) ? h('span', { class: 'mk draft', title: 'Changed here, not yet saved to the game' }, '● unsaved')
+    : saved.has(x.id) ? h('span', { class: 'mk saved', title: 'Has an adjusted layout in the game' }, '✓') : null,
+  !hasArt(x.id) ? h('span', { class: 'mk noart', title: 'No picture yet' }, '–') : null)));
+  if (!list.length) document.getElementById('items').append(h('p', { class: 'muted', style: { padding: '8px' } }, 'No cards match.'));
+  const n = Object.keys(drafts).length;
+  clear(document.getElementById('status')).append(n ? h('span', {}, h('b', {}, n), n === 1 ? ' card changed and not yet saved to the game' : ' cards changed and not yet saved to the game')
+    : h('span', {}, `${saved.size} card${saved.size === 1 ? '' : 's'} with an adjusted layout in the game. Nothing unsaved.`));
+}
+searchEl.addEventListener('input', renderList);
+
+function select(id) {
+  sel = id;
+  const u = new URL(location.href);
+  u.searchParams.set('card', id);
+  history.replaceState(null, '', u);
+  renderList();
+  renderStage();
+  renderControls();
+  document.querySelector(`.ed-item[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+function step(d) {
+  const list = visible();
+  const i = list.findIndex((x) => x.id === sel);
+  const next = list[(i + d + list.length) % list.length];
+  if (next) select(next.id);
+}
+
+// ----------------------------------------------------------- the stage
+const stage = document.getElementById('stage');
+let big = null;
+const bigPx = () => parseFloat(getComputedStyle(big).fontSize);
+
+function renderStage() {
+  if (!sel) { clear(stage).append(h('p', { class: 'ed-help' }, 'Choose a card on the left.')); return; }
+  const L = current(sel);
+  const it = ITEM[sel];
+  const wrap = h('div', { class: 'ed-big', id: 'big' });
+  big = render(sel, L, { counters: CARD_BY_ID[sel] && CARD_BY_ID[sel].token ? 2 : undefined });
+  wrap.append(big);
+  const fit = h('div', { id: 'fit' });
+  clear(stage).append(
+    h('div', { class: 'ed-nav' },
+      h('button', { class: 'btn', title: 'Previous card ( [ )', onclick: () => step(-1) }, '◀'),
+      h('h2', {}, it.name),
+      h('button', { class: 'btn', title: 'Next card ( ] )', onclick: () => step(1) }, '▶')),
+    h('p', { class: 'ed-help' }, 'Drag the picture to move it, scroll on it to zoom, and drag its bottom edge to make it taller or shorter. Drag the title, coin, tags, seals and badges to move them. Drag a block of text up or down to change the space above it. The panel on the right has every setting.'),
+    wrap,
+    fit,
+    h('div', { class: 'ed-sizes' },
+      h('figure', {}, render(sel, L), h('figcaption', {}, 'Full size, as in the card dialog')),
+      h('figure', {}, render(sel, L, { small: true }), h('figcaption', {}, 'In your hand'))));
+  attachDrag(wrap);
+  requestAnimationFrame(checkFit);
+}
+
+// Is anything cut off? The frame hides overflow, so compare the bottom strip with the frame.
+function overflowOf(card) {
+  const frame = card.querySelector('.cf-frame');
+  const type = card.querySelector('.cf-type');
+  const body = card.querySelector('.cf-body');
+  if (!frame || !type || !body) return false;
+  const fr = frame.getBoundingClientRect();
+  return type.getBoundingClientRect().bottom > fr.bottom + 1 || body.scrollHeight > body.clientHeight + 2;
+}
+function checkFit() {
+  const box = document.getElementById('fit');
+  if (!box || !big) return;
+  const small = stage.querySelector('.ed-sizes .card.small');
+  const bad = overflowOf(big);
+  const badSmall = small && overflowOf(small);
+  box.className = bad || badSmall ? 'ed-warn' : 'ed-ok';
+  box.textContent = bad ? 'Something is cut off at the bottom: shorten the picture, or shrink or narrow the text.'
+    : badSmall ? 'It fits at full size, but something is cut off on the hand-sized card.'
+      : 'Everything fits.';
+}
+
+// Redraw after a change, keeping the controls in step.
+function changed(redrawControls = true) {
+  renderStage();
+  if (redrawControls) renderControls(); else syncControls();
+  renderList();
+}
+
+// --------------------------------------------------------------- dragging
+function attachDrag(wrap) {
+  wrap.addEventListener('pointermove', (e) => {
+    if (drag) return;
+    const art = e.target.closest('.cf-art');
+    if (art) art.classList.toggle('resize', art.getBoundingClientRect().bottom - e.clientY < 10);
+  });
+  wrap.addEventListener('pointerdown', (e) => {
+    const card = wrap.querySelector('.card');
+    const px = bigPx();
+    const L = current(sel) || {};
+    let target = null;
+    for (const [k, s] of Object.entries(LAYOUT_BADGES)) {
+      const n = card.querySelector(':scope > ' + s);
+      if (n && n.contains(e.target)) target = { badge: k };
+    }
+    if (!target && e.target.closest('.cf-title, .cf-ribbon')) target = { title: true };
+    if (!target) {
+      const bodyChild = [...card.querySelectorAll('.cf-body > *')].find((n) => n.contains(e.target));
+      if (bodyChild) {
+        const part = Object.entries(LAYOUT_PARTS).find(([, s]) => bodyChild.matches(s));
+        if (part) target = { part: part[0] };
+      }
+    }
+    const art = e.target.closest('.cf-art');
+    if (!target && art) {
+      const r = art.getBoundingClientRect();
+      target = r.bottom - e.clientY < 10 ? { artH: r.height / px } : { pan: { w: r.width, h: r.height } };
+    }
+    if (!target) return;
+    e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY };
+    const base = {
+      badge: target.badge ? (getPath(L, 'badges.' + target.badge) || [0, 0]) : null,
+      title: [getPath(L, 'title.x') || 0, getPath(L, 'title.y') || 0],
+      part: target.part ? getPath(L, target.part + '.y') || 0 : 0,
+      ax: getPath(L, 'art.x') ?? 50,
+      ay: getPath(L, 'art.y') ?? 50,
+    };
+    drag = (ev) => {
+      const dx = (ev.clientX - start.x) / px;
+      const dy = (ev.clientY - start.y) / px;
+      if (target.badge) setPath(sel, 'badges.' + target.badge, [r2(round(base.badge[0] + dx, 0.05)), r2(round(base.badge[1] + dy, 0.05))]);
+      else if (target.title) { setPath(sel, 'title.x', r2(round(base.title[0] + dx, 0.05)) || undefined); setPath(sel, 'title.y', r2(round(base.title[1] + dy, 0.05)) || undefined); }
+      else if (target.part) setPath(sel, target.part + '.y', r2(round(base.part + dy, 0.05)) || undefined);
+      else if (target.artH) setPath(sel, 'art.h', r2(Math.max(2, Math.min(18, round(target.artH + dy, 0.1)))));
+      else if (target.pan) {
+        const zoom = getPath(current(sel), 'art.zoom') || 1;
+        const k = 100 / Math.max(0.35, zoom - 1 + 0.35);
+        setPath(sel, 'art.x', Math.round(Math.max(0, Math.min(100, base.ax - (ev.clientX - start.x) / target.pan.w * k))));
+        setPath(sel, 'art.y', Math.round(Math.max(0, Math.min(100, base.ay - (ev.clientY - start.y) / target.pan.h * k))));
+      }
+      changed(false);
+    };
+    const up = () => { window.removeEventListener('pointermove', drag); window.removeEventListener('pointerup', up); drag = null; renderControls(); };
+    window.addEventListener('pointermove', drag);
+    window.addEventListener('pointerup', up);
+  });
+  wrap.addEventListener('wheel', (e) => {
+    if (!e.target.closest('.cf-art')) return;
+    e.preventDefault();
+    const zoom = getPath(current(sel), 'art.zoom') || 1;
+    const z = r2(Math.max(1, Math.min(3, zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06))));
+    setPath(sel, 'art.zoom', z <= 1.001 ? undefined : z);
+    changed(false);
+  }, { passive: false });
+}
+let drag = null;
+
+// -------------------------------------------------------------- controls
+const ctlEl = document.getElementById('controls');
+// Automatic values, read from the card as drawn without adjustments.
+function automatic(id) {
+  const probe = render(id, null);
+  probe.style.cssText = 'position:absolute;left:-9999px;top:0;font-size:20px';
+  document.body.append(probe);
+  const px = 20;
+  const art = probe.querySelector('.cf-art');
+  const body = probe.querySelector('.cf-body');
+  const cs = body ? getComputedStyle(body) : null;
+  const out = {
+    'art.h': art ? r2(art.getBoundingClientRect().height / px) : 8,
+    'body.padX': cs ? r2(parseFloat(cs.paddingLeft) / px) : 0.6,
+    'body.gap': cs ? r2(parseFloat(cs.rowGap || cs.gap) / px) : 0.32,
+    parts: Object.keys(LAYOUT_PARTS).filter((k) => body && body.querySelector(':scope > ' + LAYOUT_PARTS[k])),
+    badges: Object.keys(LAYOUT_BADGES).filter((k) => probe.querySelector(':scope > ' + LAYOUT_BADGES[k])),
+  };
+  probe.remove();
+  return out;
+}
+
+const ROWS = [];
+function slider(path, label, { min, max, step, def, unit = '', fmt = (v) => v, onRemove }) {
+  const L = current(sel);
+  const v = getPath(L, path);
+  const isSet = v !== undefined;
+  const val = isSet ? v : def;
+  const input = h('input', { type: 'range', min, max, step, value: val });
+  const out = h('span', { class: 'val' }, fmt(val) + unit);
+  const reset = h('button', { class: 'rs', title: 'Back to automatic', disabled: !isSet, onclick: () => { setPath(sel, path, undefined); if (onRemove) onRemove(); changed(); } }, '↺');
+  input.addEventListener('input', () => { const n = r2(+input.value); setPath(sel, path, n); out.textContent = fmt(n) + unit; changed(false); });
+  input.addEventListener('change', () => renderControls());
+  const row = h('div', { class: 'ed-row' + (isSet ? ' set' : ''), dataset: { path } }, h('span', {}, label), input, out, reset);
+  ROWS.push({ path, input, out, row, def, unit, fmt, reset });
+  return row;
+}
+function syncControls() {
+  const L = current(sel);
+  for (const r of ROWS) {
+    const v = getPath(L, r.path);
+    const val = v !== undefined ? v : r.def;
+    if (document.activeElement !== r.input) r.input.value = val;
+    r.out.textContent = r.fmt(val) + r.unit;
+    r.row.classList.toggle('set', v !== undefined);
+    r.reset.disabled = v === undefined;
+  }
+}
+// Pointing at a group outlines what it changes on the big card.
+function hlOn(group, sels) {
+  group.addEventListener('mouseenter', () => { for (const s of sels) big && big.querySelectorAll(s).forEach((n) => n.classList.add('ed-hl')); });
+  group.addEventListener('mouseleave', () => { big && big.querySelectorAll('.ed-hl').forEach((n) => n.classList.remove('ed-hl')); });
+  return group;
+}
+
+function renderControls() {
+  ROWS.length = 0;
+  clear(ctlEl);
+  if (!sel) return;
+  const auto = automatic(sel);
+  const L = current(sel);
+  const group = (title, sels, ...rows) => hlOn(h('div', { class: 'ed-group' }, h('h3', {}, title), ...rows), sels);
+  const pct = (v) => Math.round(v * 100);
+  ctlEl.append(
+    group('Picture', ['.cf-art'],
+      slider('art.h', 'Height', { min: 2, max: 18, step: 0.1, def: auto['art.h'], unit: 'em' }),
+      slider('art.zoom', 'Zoom', { min: 1, max: 3, step: 0.01, def: 1, fmt: (v) => '×' + v }),
+      slider('art.x', 'Left – right', { min: 0, max: 100, step: 1, def: 50, unit: '%' }),
+      slider('art.y', 'Top – bottom', { min: 0, max: 100, step: 1, def: 50, unit: '%' })),
+    group('Title', ['.cf-title'],
+      slider('title.size', 'Size', { min: 0.5, max: 1.6, step: 0.01, def: 1, fmt: pct, unit: '%' }),
+      slider('title.x', 'Across', { min: -4, max: 4, step: 0.05, def: 0, unit: 'em' }),
+      slider('title.y', 'Up – down', { min: -1.5, max: 1.5, step: 0.05, def: 0, unit: 'em' })),
+    group('Text panel', ['.cf-body'],
+      slider('body.size', 'Text size', { min: 0.6, max: 1.4, step: 0.01, def: 1, fmt: pct, unit: '%' }),
+      slider('body.padX', 'Side margins', { min: 0, max: 3, step: 0.05, def: auto['body.padX'], unit: 'em' }),
+      slider('body.gap', 'Spacing', { min: 0, max: 1.5, step: 0.02, def: auto['body.gap'], unit: 'em' })),
+    ...auto.parts.map((k) => group(PART_NAME[k], [':scope .cf-body > ' + LAYOUT_PARTS[k]],
+      slider(k + '.size', 'Size', { min: 0.5, max: 1.8, step: 0.01, def: 1, fmt: pct, unit: '%' }),
+      slider(k + '.width', 'Width', { min: 30, max: 100, step: 1, def: 100, unit: '%' }),
+      slider(k + '.y', 'Space above', { min: -2, max: 4, step: 0.05, def: 0, unit: 'em' }),
+      h('label', { class: 'ed-check' }, h('input', {
+        type: 'checkbox', checked: !!getPath(L, k + '.hide'),
+        onchange: (e) => { setPath(sel, k + '.hide', e.target.checked || undefined); changed(); },
+      }), 'Hide it'))),
+    auto.badges.length ? group('Badges', auto.badges.map((k) => ':scope > ' + LAYOUT_BADGES[k]),
+      h('p', { class: 'muted', style: { fontSize: '12.5px', margin: '0 0 4px' } }, 'Drag them on the card. Moved badges:'),
+      ...auto.badges.map((k) => {
+        const b = getPath(L, 'badges.' + k);
+        return h('div', { class: 'ed-row' + (b ? ' set' : '') }, h('span', {}, BADGE_NAME[k]), h('span', { class: 'muted' }, b ? `${b[0]}, ${b[1]} em` : 'not moved'), h('span'),
+          h('button', { class: 'rs', title: 'Put it back', disabled: !b, onclick: () => { setPath(sel, 'badges.' + k, undefined); changed(); } }, '↺'));
+      })) : null,
+    h('div', { class: 'ed-actions' },
+      h('button', { class: 'btn', id: 'btn-reset-card', disabled: !L, onclick: () => { if (saved.has(sel)) drafts[sel] = null; else delete drafts[sel]; persist(); changed(); } }, 'Automatic layout for this card'),
+      isDraft(sel) && saved.has(sel) ? h('button', { class: 'btn', onclick: () => { delete drafts[sel]; persist(); changed(); } }, 'Undo my changes') : null),
+    h('p', { class: 'muted', style: { fontSize: '12.5px' } }, isDraft(sel) ? 'Changed here. Use “Save to the game” to make it permanent.'
+      : saved.has(sel) ? 'This layout is in the game.' : 'Automatic layout, as the game draws it.'));
+}
+
+// ---------------------------------------------------------------- saving
+document.getElementById('btn-save').addEventListener('click', () => {
+  const text = merged();
+  const n = Object.keys(drafts).length;
+  const area = h('textarea', { class: 'ed-json', readonly: true, id: 'layout-json' });
+  area.value = text;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); toast('Copied the layouts'); } catch { area.select(); document.execCommand('copy'); toast('Copied the layouts'); }
+  };
+  const download = () => {
+    const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'application/json' })), download: 'layouts.json' });
+    document.body.append(a); a.click(); a.remove();
+  };
+  modal({
+    title: 'Save the layouts to the game',
+    wide: true,
+    body: h('div', {},
+      h('p', {}, n ? `${n} card${n === 1 ? '' : 's'} changed. This file holds every adjusted card, yours included.` : 'Nothing has changed since the last save, but here is the file.'),
+      h('ol', { class: 'ed-steps' },
+        h('li', {}, h('button', { class: 'btn primary', id: 'btn-copy', onclick: copy }, 'Copy the layouts')),
+        h('li', {}, h('a', { class: 'btn', href: EDIT_URL, target: '_blank', rel: 'noopener', id: 'btn-github' }, 'Open layouts.json on GitHub'),
+          ' (signed in). Select everything in the file, paste over it, and press ', h('b', {}, 'Commit changes'), '.'),
+        h('li', {}, 'The game picks the new layouts up a few minutes later. Reload this page then: cards that have been saved lose their “unsaved” mark.')),
+      h('p', { class: 'muted' }, 'Or ', h('a', { href: '#', id: 'btn-download', style: { color: 'var(--gold-2)' }, onclick: (e) => { e.preventDefault(); download(); } }, 'download layouts.json'),
+        ' and put it in your DuelingDukes Drive folder for Claude to add.'),
+      area),
+  });
+});
+
+document.getElementById('btn-discard').addEventListener('click', () => {
+  const n = Object.keys(drafts).length;
+  if (!n) { toast('There are no unsaved changes'); return; }
+  const m = modal({
+    title: 'Discard your changes?',
+    body: h('div', {}, h('p', {}, `This throws away the unsaved changes to ${n} card${n === 1 ? '' : 's'}. Layouts already in the game are kept.`),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn danger', id: 'btn-discard-yes', onclick: () => { drafts = {}; persist(); m.close(); changed(); } }, 'Discard'),
+        h('button', { class: 'btn', onclick: () => m.close() }, 'Keep them'))),
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === '[' ) step(-1);
+  if (e.key === ']') step(1);
+});
+
+renderList();
+if (!sel) sel = visible()[0]?.id || ITEMS[0].id;
+select(sel);
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

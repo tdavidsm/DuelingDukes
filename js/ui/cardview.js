@@ -16,16 +16,94 @@ let ART = new Map();
 let ART_BASE = '';
 export async function loadArt(base = '') {
   ART_BASE = base;
-  try {
-    const res = await fetch(base + 'art/cards/index.json', { cache: 'no-cache' });
-    if (res.ok) {
-      const list = await res.json();
-      ART = new Map(Array.isArray(list) ? list.map((id) => [id, id + '.webp']) : Object.entries(list));
-    }
-  } catch { /* no art yet */ }
+  const [list, layouts] = await Promise.all([
+    fetch(base + 'art/cards/index.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch(base + 'art/cards/layouts.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]);
+  if (list) ART = new Map(Array.isArray(list) ? list.map((id) => [id, id + '.webp']) : Object.entries(list));
+  LAYOUTS = new Map(Object.entries((layouts && layouts.cards) || {}));
   return ART;
 }
 export const hasArt = (id) => ART.has(id);
+
+// ---------------------------------------------------------------- layouts
+// art/cards/layouts.json holds hand-tuned adjustments for particular cards,
+// made with tools/card-layout.html. Everything is optional, in em (so it
+// scales with the card) or as a multiplier, and a card with no entry is drawn
+// exactly as the automatic layout draws it:
+//   art:    { h: picture height, x, y: focal point in %, zoom }
+//   title:  { size, x, y }
+//   body:   { size, padX: side padding, gap: space between parts }
+//   icons | explain | words | actions | flavor: { size, width: % of the panel, y: extra space above, hide }
+//   badges: { cost | tags | req | fp | tokens: [x, y] }   moved by this much
+let LAYOUTS = new Map();
+export const savedLayouts = () => LAYOUTS;
+export const LAYOUT_PARTS = { icons: '.cf-icons', explain: '.cf-explain', words: '.cf-words', actions: '.cf-actions', flavor: '.cf-flavor' };
+export const LAYOUT_BADGES = { cost: '.cf-cost', tags: '.cf-tags', req: '.cf-req', fp: '.cf-fp', tokens: '.cf-tokens' };
+const TITLE_SIZE = { '': 1.02, ' cf-long': 0.9, ' cf-long2': 0.8, ' cf-long3': 0.72 };
+
+const fin = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null);
+
+export function applyLayout(el, L, name) {
+  if (!L || typeof L !== 'object') return el;
+  const q = (s) => el.querySelector(s);
+  const art = q('.cf-art');
+  const img = q('.cf-art img');
+  const body = q('.cf-body');
+  if (L.art && art) {
+    const ah = fin(L.art.h, 2, 18);
+    if (ah !== null) {
+      Object.assign(art.style, { flex: `0 0 ${ah}em`, minHeight: '0' });
+      if (body) body.style.flex = '1 1 auto';
+    }
+    const x = fin(L.art.x, 0, 100) ?? 50;
+    const y = fin(L.art.y, 0, 100) ?? 50;
+    const zoom = fin(L.art.zoom, 1, 4) ?? 1;
+    if (img) {
+      img.style.objectPosition = `${x}% ${y}%`;
+      if (zoom !== 1) Object.assign(img.style, { transform: `scale(${zoom})`, transformOrigin: `${x}% ${y}%` });
+    }
+  }
+  const title = q('.cf-title');
+  if (L.title && title) {
+    const size = fin(L.title.size, 0.4, 2);
+    if (size !== null) title.style.fontSize = `${((TITLE_SIZE[titleClass(name || '')] || 1.02) * size).toFixed(3)}em`;
+    const tx = fin(L.title.x, -10, 10) ?? 0;
+    const ty = fin(L.title.y, -5, 5) ?? 0;
+    if (tx || ty) title.style.translate = `${tx}em ${ty}em`;
+  }
+  if (L.body && body) {
+    const size = fin(L.body.size, 0.4, 2);
+    if (size !== null) body.style.zoom = size;
+    const pad = fin(L.body.padX, 0, 5);
+    if (pad !== null) Object.assign(body.style, { paddingLeft: pad + 'em', paddingRight: pad + 'em' });
+    const gap = fin(L.body.gap, 0, 3);
+    if (gap !== null) body.style.gap = gap + 'em';
+  }
+  for (const [part, sel] of Object.entries(LAYOUT_PARTS)) {
+    const P = L[part];
+    if (!P || !body) continue;
+    for (const node of body.querySelectorAll(':scope > ' + sel)) {
+      if (P.hide) { node.style.display = 'none'; continue; }
+      const size = fin(P.size, 0.4, 2.5);
+      if (size !== null) node.style.zoom = size;
+      const w = fin(P.width, 20, 100);
+      if (w !== null && w < 100) Object.assign(node.style, { maxWidth: w + '%', alignSelf: 'center', width: '100%' });
+      const dy = fin(P.y, -6, 6);
+      if (dy) node.style.marginTop = dy + 'em';
+    }
+  }
+  for (const [badge, sel] of Object.entries(LAYOUT_BADGES)) {
+    const B = L.badges && L.badges[badge];
+    const node = q(':scope > ' + sel);
+    if (!Array.isArray(B) || !node) continue;
+    const bx = fin(B[0], -20, 20) ?? 0;
+    const by = fin(B[1], -30, 30) ?? 0;
+    if (bx || by) node.style.translate = `${bx}em ${by}em`;
+  }
+  el.classList.add('cf-tuned');
+  return el;
+}
 
 function artEl(id, fallbackTag, label) {
   if (ART.has(id)) {
@@ -231,14 +309,14 @@ export function cardEl(cardId, opts = {}) {
   }, icon(tokIcon(card)), opts.counters !== undefined ? h('b', {}, String(opts.counters || 0)) : null) : null,
   opts.footer || null);
   void d;
-  return el;
+  return applyLayout(el, opts.layout !== undefined ? opts.layout : LAYOUTS.get(cardId), card.name);
 }
 
 export function houseEl(houseId, opts = {}) {
   const house = HOUSE_BY_ID[houseId];
   const d = describeHouse(house);
   const start = fxRow(house.start, null);
-  return h('div', {
+  const el = h('div', {
     class: `card cf house${opts.selected ? ' selected' : ''}${opts.onclick ? ' clickable' : ''}`,
     onclick: opts.onclick || null,
     dataset: { house: houseId },
@@ -253,6 +331,7 @@ export function houseEl(houseId, opts = {}) {
       h('p', { class: 'cf-flavor' }, house.motto)),
     h('div', { class: 'cf-type' }, 'Noble house')),
   h('div', { class: 'cf-tags' }, house.tags.map((t) => icon(t, 'cf-tag'))));
+  return applyLayout(el, opts.layout !== undefined ? opts.layout : LAYOUTS.get(houseId), house.name);
 }
 
 export { UNITS };
