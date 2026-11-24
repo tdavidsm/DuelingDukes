@@ -218,7 +218,9 @@ copying and pasting for you, and can match a batch of downloaded files to cards 
 as the game draws it, with its art and any saved layout, nine to a US Letter sheet at real card size
 (2.5 × 3.5 in), after an index giving each card's sheet and id and marking adjusted cards and any that
 are cut off. `--large` writes `card-proofs-large.pdf` instead, four to a sheet and 1.36 × bigger for
-checking small text; `--only changed` or `--cards id,id` limits it. The same sheets can be printed from a
+checking small text; `--only changed` or `--cards id,id` limits it. Each sheet is flattened into a single
+300 dpi picture so the PDF prints on any printer (browser-made PDFs can print as pages of raw text on some
+printers); `--vector` writes the browser's own PDF instead, and `--dpi` changes the resolution. The same sheets can be printed from a
 browser at `…/DuelingDukes/tools/proof-sheets.html` (print at 100% with background graphics on).
 
 **Card layouts.** `tools/card-layout.html` (on the published site: `…/DuelingDukes/tools/card-layout.html`)

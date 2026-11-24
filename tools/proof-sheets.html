@@ -35,7 +35,7 @@
   body.large .foot { display: none; }
   body.large .card { font-size: calc(3.4in / 17); }
   body.large .grid { grid-template-columns: repeat(2, 3.4in); column-gap: 0.3in; row-gap: 0.08in; }
-  .sheet.cover { height: auto; min-height: 11in; overflow: visible; display: block; }
+  .sheet.cover { display: block; }
   .index .id { color: #8a7350; font-size: 7.4pt; }
   .index .tuned { color: #8a5a00; font-weight: 700; }
   .index .warn { color: #a3322a; font-weight: 700; }
@@ -96,15 +96,25 @@ const root = document.getElementById('root');
 const cover = h('section', { class: 'sheet cover' },
   h('h1', {}, 'Dueling Dukes: card proofs'),
   h('p', {}, `${items.length} card faces as the game draws them, with their art and any saved layout, ${stamp}. `,
-    size === 'actual' ? 'Cards are printed at real size, 2.5 × 3.5 inches, when printed at 100%.' : 'Cards are printed 1.45 × real size, for checking small text.'),
+    size === 'actual' ? 'Cards are printed at real size, 2.5 × 3.5 inches, when printed at 100%.' : 'Cards are printed 1.36 × real size, for checking small text.'),
   h('p', {}, 'The index gives each card’s number, its id (as used by the layout editor) and its sheet, and marks ', h('b', { class: 'tuned' }, 'adjusted'), ' cards (with a saved layout), cards with ', h('b', {}, 'no picture'), ', and any that are ', h('b', { style: { color: '#a3322a' } }, 'cut off'), '.',
     size === 'actual' ? ' Cards run left to right, top to bottom, nine to a sheet, in the order of the index.' : ''),
-  h('div', { class: 'index' }, items.map((x, i) => h('div', { dataset: { id: x.id } },
-    h('span', { class: 'n' }, x.n), h('span', { class: 'dot', style: { background: COLOR[x.kind] } }),
-    h('span', {}, x.name, ' ', h('span', { class: 'id' }, x.id), layouts.has(x.id) ? h('span', { class: 'tuned' }, ' adjusted') : null,
-      hasArt(x.id) ? null : h('span', { class: 'id' }, ' no picture'), h('span', { class: 'warn' })),
-    h('span', { class: 'pg' }, String(Math.floor(i / PER) + 1)))))); 
-root.append(cover);
+);
+// The index, on whole pages of its own, so no line is ever split between two sheets.
+const row = (x, i) => h('div', { dataset: { id: x.id } },
+  h('span', { class: 'n' }, x.n), h('span', { class: 'dot', style: { background: COLOR[x.kind] } }),
+  h('span', {}, x.name, ' ', h('span', { class: 'id' }, x.id), layouts.has(x.id) ? h('span', { class: 'tuned' }, ' adjusted') : null,
+    hasArt(x.id) ? null : h('span', { class: 'id' }, ' no picture'), h('span', { class: 'warn' })),
+  h('span', { class: 'pg' }, String(Math.floor(i / PER) + 1)));
+const FIRST = 112;
+const REST = 136;
+const chunks = [items.slice(0, FIRST)];
+for (let i = FIRST; i < items.length; i += REST) chunks.push(items.slice(i, i + REST));
+chunks.forEach((chunk, k) => {
+  const offset = k ? FIRST + (k - 1) * REST : 0;
+  const idx = h('div', { class: 'index' }, chunk.map((x, j) => row(x, offset + j)));
+  if (k === 0) { cover.append(idx); root.append(cover); } else root.append(h('section', { class: 'sheet cover' }, idx));
+});
 
 const imgs = [];
 pages.forEach((page, p) => {
