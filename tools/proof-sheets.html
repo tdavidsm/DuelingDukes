@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Proof Sheets</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Proof sheets: every card drawn by the game's own card code, with its art
+     and any saved layout, laid out to print on US Letter.
+       ?size=actual   9 cards a page at real card size (2.5 × 3.5 in), the default
+       ?size=large    4 cards a page, 1.36 × as big, for checking small text
+       ?only=changed  just the cards with an adjusted layout; ?cards=id,id for chosen ones */
+  @page { size: letter portrait; margin: 0; }
+  html, body { overflow: visible; height: auto; background: #fff; color: #1b140c; }
+  body { margin: 0; font-family: "EB Garamond", var(--serif); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { width: 8.5in; height: 11in; box-sizing: border-box; padding: 0.32in 0.4in 0.22in; display: flex; flex-direction: column; page-break-after: always; break-after: page; overflow: hidden; position: relative; background: #fff; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; font-size: 10pt; color: #5b452c; border-bottom: 0.5pt solid #b9a27a; padding-bottom: 2pt; margin-bottom: 0.1in; }
+  .head b { font-family: "Cinzel", var(--display); color: #2b1d10; font-size: 11pt; letter-spacing: .04em; }
+  .grid { display: grid; justify-content: center; align-content: start; }
+  .slot { display: flex; flex-direction: column; align-items: center; }
+  .slot .card { box-shadow: none; }
+  .label { font-size: 7.5pt; line-height: 1.15; color: #5b452c; margin-top: 2pt; text-align: center; max-width: 2.5in; }
+  .label .tuned { color: #8a5a00; font-weight: 700; }
+  .label .warn { color: #a3322a; font-weight: 700; }
+  /* Real size: 17em = 2.5in. Three rows of 3.5in cards fill 10.5in of the 11, so the
+     labels live in the index instead, and each sheet carries only a small footer. */
+  body.actual .card { font-size: calc(2.5in / 17); }
+  body.actual .sheet:not(.cover) { padding: 0.17in 0.25in 0; }
+  body.actual .sheet:not(.cover) .head { display: none; }
+  body.actual .label { display: none; }
+  body.actual .grid { grid-template-columns: repeat(3, 2.5in); column-gap: 0.2in; row-gap: 0.04in; }
+  body.actual .foot { position: absolute; left: 0; right: 0; bottom: 0.06in; text-align: center; font-size: 7pt; color: #8a7350; }
+  body.large .foot { display: none; }
+  body.large .card { font-size: calc(3.4in / 17); }
+  body.large .grid { grid-template-columns: repeat(2, 3.4in); column-gap: 0.3in; row-gap: 0.08in; }
+  .sheet.cover { height: auto; min-height: 11in; overflow: visible; display: block; }
+  .index .id { color: #8a7350; font-size: 7.4pt; }
+  .index .tuned { color: #8a5a00; font-weight: 700; }
+  .index .warn { color: #a3322a; font-weight: 700; }
+  .cover h1 { font-family: "Cinzel", var(--display); font-size: 26pt; margin: 0.3in 0 0.05in; color: #2b1d10; }
+  .cover p { margin: 0 0 0.1in; font-size: 11pt; }
+  .index { columns: 2; column-gap: 0.35in; font-size: 8.4pt; line-height: 1.32; }
+  .index div { break-inside: avoid; display: flex; gap: 4pt; }
+  .index .n { color: #8a7350; min-width: 2.2em; text-align: right; }
+  .index .pg { margin-left: auto; color: #5b452c; }
+  .index .dot { width: 6pt; height: 6pt; border-radius: 1pt; margin-top: 3pt; flex: none; }
+  @media screen {
+    body { background: #6b5a45; padding: 20px 0; }
+    .sheet { margin: 0 auto 20px; box-shadow: 0 4px 18px rgba(0,0,0,.45); }
+    .bar { position: sticky; top: 0; z-index: 9; display: flex; gap: 10px; justify-content: center; align-items: center; padding: 8px; background: #21160e; color: #f4e9cd; margin: -20px 0 20px; font-size: 14px; }
+    .bar a { color: #f3d68a; }
+  }
+  @media print { .bar { display: none; } }
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+<div id="root"></div>
+<script type="module">
+import { h } from '../js/ui/dom.js';
+import { cardEl, houseEl, loadArt, hasArt, savedLayouts } from '../js/ui/cardview.js';
+import { CARDS } from '../js/engine/cards.js';
+import { HOUSES, TAG_NAME } from '../js/engine/data.js';
+
+const params = new URLSearchParams(location.search);
+const size = params.get('size') === 'large' ? 'large' : 'actual';
+const PER = size === 'large' ? 4 : 9;
+document.body.classList.add(size);
+await loadArt('../');
+const layouts = savedLayouts();
+
+const TYPE = { project: 'Commission', active: 'Charter', event: 'Event', house: 'House' };
+const COLOR = { project: '#3c7a4b', active: '#2f5d9b', event: '#a3322a', house: '#6a3fa0' };
+let items = [
+  ...CARDS.map((c, i) => ({ id: c.id, name: c.name, kind: c.type, n: i + 1, tag: c.tags[0] })),
+  ...HOUSES.map((x, i) => ({ id: x.id, name: x.name, kind: 'house', n: CARDS.length + i + 1 })),
+];
+if (params.get('only') === 'changed') items = items.filter((x) => layouts.has(x.id));
+if (params.get('cards')) { const want = params.get('cards').split(','); items = items.filter((x) => want.includes(x.id)); }
+
+const pages = [];
+for (let i = 0; i < items.length; i += PER) pages.push(items.slice(i, i + PER));
+const stamp = new Date().toISOString().slice(0, 10);
+
+document.getElementById('bar').append(
+  h('b', {}, 'Dueling Dukes proof sheets'),
+  `${items.length} cards, ${pages.length} sheets of ${PER}. Print on US Letter at 100% (“Actual size”), with background graphics on.`,
+  h('a', { href: '?size=' + (size === 'large' ? 'actual' : 'large') }, size === 'large' ? 'Real card size' : 'Enlarged (4 a sheet)'),
+  h('a', { href: '?only=changed&size=' + size }, 'Adjusted cards only'),
+  h('button', { class: 'btn', onclick: () => print() }, 'Print'));
+
+const root = document.getElementById('root');
+// Cover and index: where each card is.
+const cover = h('section', { class: 'sheet cover' },
+  h('h1', {}, 'Dueling Dukes: card proofs'),
+  h('p', {}, `${items.length} card faces as the game draws them, with their art and any saved layout, ${stamp}. `,
+    size === 'actual' ? 'Cards are printed at real size, 2.5 × 3.5 inches, when printed at 100%.' : 'Cards are printed 1.45 × real size, for checking small text.'),
+  h('p', {}, 'The index gives each card’s number, its id (as used by the layout editor) and its sheet, and marks ', h('b', { class: 'tuned' }, 'adjusted'), ' cards (with a saved layout), cards with ', h('b', {}, 'no picture'), ', and any that are ', h('b', { style: { color: '#a3322a' } }, 'cut off'), '.',
+    size === 'actual' ? ' Cards run left to right, top to bottom, nine to a sheet, in the order of the index.' : ''),
+  h('div', { class: 'index' }, items.map((x, i) => h('div', { dataset: { id: x.id } },
+    h('span', { class: 'n' }, x.n), h('span', { class: 'dot', style: { background: COLOR[x.kind] } }),
+    h('span', {}, x.name, ' ', h('span', { class: 'id' }, x.id), layouts.has(x.id) ? h('span', { class: 'tuned' }, ' adjusted') : null,
+      hasArt(x.id) ? null : h('span', { class: 'id' }, ' no picture'), h('span', { class: 'warn' })),
+    h('span', { class: 'pg' }, String(Math.floor(i / PER) + 1)))))); 
+root.append(cover);
+
+const imgs = [];
+pages.forEach((page, p) => {
+  const grid = h('div', { class: 'grid' });
+  for (const x of page) {
+    const el = x.kind === 'house' ? houseEl(x.id) : cardEl(x.id);
+    el.querySelectorAll('img').forEach((im) => { im.loading = 'eager'; imgs.push(im); });
+    grid.append(h('div', { class: 'slot', dataset: { id: x.id } }, el,
+      h('div', { class: 'label' }, `#${x.n} · ${x.id}`, layouts.has(x.id) ? h('span', { class: 'tuned' }, ' · adjusted') : null,
+        hasArt(x.id) ? null : ' · no picture', h('span', { class: 'warn' }))));
+  }
+  const first = page[0];
+  const last = page[page.length - 1];
+  root.append(h('section', { class: 'sheet' },
+    h('div', { class: 'head' }, h('b', {}, 'Dueling Dukes · card proofs'), h('span', {}, `#${first.n}–${last.n} · ${first.name} to ${last.name}`), h('span', {}, `sheet ${p + 1} of ${pages.length} · ${stamp}`)),
+    grid,
+    h('div', { class: 'foot' }, `Dueling Dukes card proofs · sheet ${p + 1} of ${pages.length} · #${first.n}–${last.n} · ${stamp}`)));
+});
+
+await Promise.all(imgs.map((im) => (im.complete ? null : new Promise((r) => { im.onload = im.onerror = r; }))));
+// Hand the pictures to the printer as JPEGs: a PDF can hold a JPEG as it is,
+// where WebP pictures are stored uncompressed (a 20 MB deck becomes 180 MB).
+await Promise.all(imgs.map(async (im) => {
+  if (!im.naturalWidth) return;
+  const c = document.createElement('canvas');
+  c.width = im.naturalWidth;
+  c.height = im.naturalHeight;
+  c.getContext('2d').drawImage(im, 0, 0);
+  const url = c.toDataURL('image/jpeg', 0.86);
+  await new Promise((r) => { im.onload = im.onerror = r; im.src = url; });
+}));
+await document.fonts.ready;
+// Flag anything cut off, so it stands out on paper.
+let cut = 0;
+for (const slot of document.querySelectorAll('.slot')) {
+  const card = slot.querySelector('.card');
+  const frame = card.querySelector('.cf-frame');
+  const type = card.querySelector('.cf-type');
+  const body = card.querySelector('.cf-body');
+  const fr = frame.getBoundingClientRect();
+  const off = (type && type.getBoundingClientRect().bottom > fr.bottom + 1) || (body && body.scrollHeight > body.clientHeight + 2)
+    || [...card.querySelectorAll('[data-float]')].some((n) => { const r = n.getBoundingClientRect(); return r.right > fr.right + 1 || r.bottom > fr.bottom + 1 || r.left < fr.left - 1 || r.top < fr.top - 1; });
+  if (off) {
+    slot.querySelector('.warn').textContent = ' · cut off';
+    const row = document.querySelector(`.index [data-id="${slot.dataset.id}"] .warn`);
+    if (row) row.textContent = ' cut off';
+    cut++;
+  }
+}
+document.body.dataset.cut = cut;
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

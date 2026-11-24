@@ -214,6 +214,13 @@ is filed under that card and the next card comes up. **Download all as zip** giv
 and carry on another day. The page also has a ready-made instruction for Claude in Chrome to do the
 copying and pasting for you, and can match a batch of downloaded files to cards instead.
 
+**Proof sheets.** `node tools/proof-sheets.mjs [folder]` writes `card-proofs.pdf`: every card and house
+as the game draws it, with its art and any saved layout, nine to a US Letter sheet at real card size
+(2.5 × 3.5 in), after an index giving each card's sheet and id and marking adjusted cards and any that
+are cut off. `--large` writes `card-proofs-large.pdf` instead, four to a sheet and 1.36 × bigger for
+checking small text; `--only changed` or `--cards id,id` limits it. The same sheets can be printed from a
+browser at `…/DuelingDukes/tools/proof-sheets.html` (print at 100% with background graphics on).
+
 **Card layouts.** `tools/card-layout.html` (on the published site: `…/DuelingDukes/tools/card-layout.html`)
 fine-tunes particular cards with their art in place. Pick a card, then drag the picture to recentre it,
 scroll on it to zoom, drag its bottom edge to change its height, drag the title, coin, tags, seals and
